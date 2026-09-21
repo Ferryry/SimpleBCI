@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SimpleBCI.Tests/SimpleBCI.Tests.csproj" />
+  <Project Path="SimpleBCI.Library/SimpleBCI.Library.csproj" />
+</Solution>
