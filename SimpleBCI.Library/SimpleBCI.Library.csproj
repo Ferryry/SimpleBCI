@@ -1,30 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Model\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="brainflow" Version="5.22.2" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
+
+    <None Update="Model\Model.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
   <Target Name="CopyBrainFlowNativeLibraries" AfterTargets="Build">
     <ItemGroup>
       <BrainFlowNativeLibraries Include="$(NuGetPackageRoot)brainflow\5.22.2\lib\*.dll" />
     </ItemGroup>
-    
-    <Copy 
+
+    <Copy
       SourceFiles="@(BrainFlowNativeLibraries)"
       DestinationFolder="$(OutDir)"
       SkipUnchangedFiles="true" />
-  </Target> 
+  </Target>
 
 </Project>
