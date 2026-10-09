@@ -19,7 +19,7 @@ namespace SimpleBCI.TestApplication
         /// Formats the current Brainstate info and prints it.
         /// </summary>
         /// <param name="state">Current brainstate obtained by the SimpleBCI API.</param>
-        private void PrintCurrentState(BrainState state)
+        private void PrintCurrentState(MotorImageryState state)
         {
             Console.WriteLine(String.Format(
                 "{0}[{1}] Prediction: {2}\n",
@@ -87,7 +87,7 @@ namespace SimpleBCI.TestApplication
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
-                    PrintCurrentState(instance.GetCurrentBrainState());
+                    PrintCurrentState(instance.GetMotorImageryState());
 
                     switch (displayDelay) {
                         case DisplayDelay.HalfSecond:
@@ -126,7 +126,7 @@ namespace SimpleBCI.TestApplication
 
         public SimpleTestApplication()
         {
-            instance = new SimpleBCI(new ImmutableBoardSelection(BoardIds.Synthetic));
+            instance = new SimpleBCI(new ImmutableBoardSelection(BoardIds.MuseAthena));
             cancellationTokenSource = new CancellationTokenSource();
         }
     }

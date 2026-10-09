@@ -9,7 +9,7 @@ namespace SimpleBCI.Tests
     public sealed class SimpleTests
     {
         SimpleBCI simpleBCI;
-        Classifier classifier;
+        MotorImageryClassifier classifier;
         BoardShim board;
         
 
@@ -24,7 +24,7 @@ namespace SimpleBCI.Tests
 
             board = (BoardShim)field!.GetValue(simpleBCI)!;
 
-            classifier = new Classifier(board);
+            classifier = new MotorImageryClassifier(board);
 
             simpleBCI.StartAPI();
 

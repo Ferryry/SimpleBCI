@@ -1,33 +1,123 @@
-﻿using System;
 using brainflow;
 
 namespace SimpleBCI.API
 {
-    internal class EEGFeatureExtractor
+    /// <summary>
+    /// Builds the feature vector expected by SimpleBCI.ML/train.py.
+    /// Input rows must be ordered TP9, AF7, AF8, TP10.
+    /// </summary>
+    internal sealed class FeatureExtractor
     {
-        public const int ChannelCount = 4;
-        public const int SamplingRate = 256;
-        public const int WindowSize = 512;
-        public const int FeatureCount = 16;
+        public const int channelCount = 4;
+        public const int samplingRate = 256;
+        public const int windowSize = 512;
+        public const int featureCount = 18;
+        private const int welchNfft = 256;
+        private const int welchOverlap = 128;
+        private const int filterOrder = 4;
+        private const double epsilon = 1e-12;
+
+        private static readonly (double Low, double High)[] Bands =
+        {
+            (4.0, 8.0),     // Theta 4-8 Hz
+            (8.0, 13.0),    // Alpha 8-13 Hz
+            (13.0, 30.0)    // Beta 13-30 Hz
+        };
 
         public double[] ExtractFeatures(double[,] eegWindow)
         {
-            if (eegWindow.GetLength(0) != ChannelCount ||
-                eegWindow.GetLength(1) != WindowSize)
+            ArgumentNullException.ThrowIfNull(eegWindow);
+
+            if (eegWindow.GetLength(0) != channelCount ||
+                eegWindow.GetLength(1) != windowSize)
             {
                 throw new ArgumentException(
-                    "Expected 4 EEG channels with 512 samples each.");
+                    $"Expected {channelCount} EEG channels with {windowSize} samples each, " +
+                    "ordered TP9, AF7, AF8, TP10.",
+                    nameof(eegWindow));
             }
 
-            // TODO:
-            // 1. Jeden Kanal verarbeiten.
-            // 2. Welch-PSD wie im Python-Script berechnen.
-            // 3. Theta-, Alpha-, Beta- und Gamma-Bandpower bestimmen.
-            // 4. Pro Band log10(max(power, 1e-12)) berechnen.
-            // 5. Die 16 Features in derselben Reihenfolge
-            //    wie beim Python-Training zurückgeben.
+            double[,] relativePower = new double[channelCount, Bands.Length];
 
-            throw new NotImplementedException();
+            for (int channel = 0; channel < channelCount; channel++)
+            {
+                var signal = new double[windowSize];
+                for (int sample = 0; sample < windowSize; sample++)
+                {
+                    double value = eegWindow[channel, sample];
+                    if (!double.IsFinite(value))
+                    {
+                        throw new ArgumentException(
+                            "EEG samples must contain only finite values.",
+                            nameof(eegWindow)
+                        );
+                    }
+
+                    signal[sample] = value;
+                }
+
+                // Match preprocess_channel() in train_new.py.
+                signal = DataFilter.detrend(signal, (int)DetrendOperations.CONSTANT);
+
+                signal = DataFilter.perform_bandpass(
+                    signal,
+                    samplingRate,
+                    4.0,
+                    30.0,
+                    filterOrder,
+                    (int)FilterTypes.BUTTERWORTH,
+                    0.0
+                );
+
+                double totalPower = Math.Max(
+                    GetBandPower(signal, 4.0, 30.0),
+                    epsilon
+                );
+
+                for (int band = 0; band < Bands.Length; band++)
+                {
+                    var (low, high) = Bands[band];
+                    relativePower[channel, band] = GetBandPower(signal, low, high) / totalPower;
+                }
+            }
+
+            var features = new double[featureCount];
+            int index = 0;
+
+            // First 12 values: theta, alpha and beta relative power per channel.
+            for (int channel = 0; channel < channelCount; channel++)
+            {
+                for (int band = 0; band < Bands.Length; band++)
+                {
+                    features[index++] = relativePower[channel, band];
+                }
+            }
+
+            // Final six values, matching the actual append order in
+            // extract_features() in train_new.py: both ratios per band.
+            for (int band = 0; band < Bands.Length; band++)
+            {
+                features[index++] = Math.Log(
+                    (relativePower[1, band] + epsilon) /
+                    (relativePower[2, band] + epsilon));
+                features[index++] = Math.Log(
+                    (relativePower[0, band] + epsilon) /
+                    (relativePower[3, band] + epsilon));
+            }
+
+            return features;
+        }
+
+        private static double GetBandPower(double[] signal, double low, double high)
+        {
+            Tuple<double[], double[]> psd = DataFilter.get_psd_welch(
+                signal,
+                welchNfft,
+                welchOverlap,
+                samplingRate,
+                (int)WindowOperations.HANNING);
+
+            return DataFilter.get_band_power(psd, low, high);
         }
     }
 }

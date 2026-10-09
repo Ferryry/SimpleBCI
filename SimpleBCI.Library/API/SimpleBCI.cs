@@ -6,10 +6,7 @@ namespace SimpleBCI
     public sealed class SimpleBCI
     {
         private readonly BoardShim board;
-        private readonly Classifier classifier;
-
-        /// private bool enableRestAPI; // Needs to be implemented!
-        /// private bool enableMQTT;    // Needs to be implemented!
+        private readonly MotorImageryClassifier motorImageryClassifier;
 
         /// <summary>
         /// Converts immutable board to actual brainflow id.
@@ -20,14 +17,25 @@ namespace SimpleBCI
         {
             BrainFlowInputParams inputParams = new BrainFlowInputParams();
 
-            if (board.id.Equals(BoardIds.MuseAthena))
+            if (board.id == BoardIds.MuseAthena)
             {
                 inputParams.other_info = "preset=p1041;low_latency=true";
-
-                return new BoardShim((int)BoardIds.Synthetic, inputParams);
+                return new BoardShim(
+                    (int)brainflow.BoardIds.MUSE_S_ATHENA_BOARD,
+                    inputParams);
             }
 
-            return new BoardShim((int)BoardIds.Synthetic, inputParams);
+            if (board.id == BoardIds.Synthetic)
+            {
+                return new BoardShim(
+                    (int)brainflow.BoardIds.SYNTHETIC_BOARD,
+                    inputParams);
+            }
+
+            throw new ArgumentOutOfRangeException(
+                nameof(board),
+                board.id,
+                "The selected board is not supported.");
         }
 
         public SimpleBCI(ImmutableBoardSelection immutableBoard)
@@ -36,7 +44,7 @@ namespace SimpleBCI
 
             board = CreateBoard(immutableBoard);
 
-            classifier = new Classifier(board);
+            motorImageryClassifier = new MotorImageryClassifier(board);
         }
 
         /// <summary>
@@ -53,9 +61,9 @@ namespace SimpleBCI
         /// <see cref="StartAPI"/> must be called before calling this method.
         /// </summary>
         /// <returns>Brainstate.</returns>
-        public BrainState GetCurrentBrainState()
+        public MotorImageryState GetMotorImageryState()
         {
-            return classifier.GetCurrentBrainState();
+            return motorImageryClassifier.GetMotorImageryState();
         }
 
         /// <summary>
@@ -63,8 +71,6 @@ namespace SimpleBCI
         /// </summary>
         public bool StartAPI()
         {
-            Console.WriteLine("Starting Application...");
-
             try
             {
                 board.prepare_session();

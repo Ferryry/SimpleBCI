@@ -22,10 +22,7 @@
       <BrainFlowNativeLibraries Include="$(NuGetPackageRoot)brainflow\5.22.2\lib\*.dll" />
     </ItemGroup>
 
-    <Copy
-      SourceFiles="@(BrainFlowNativeLibraries)"
-      DestinationFolder="$(OutDir)"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BrainFlowNativeLibraries)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

@@ -22,6 +22,7 @@ namespace SimpleBCI.API
             );
 
             modelParams.output_name = "probabilities";
+            modelParams.max_array_size = 3;
 
             return new MLModel(modelParams);
         }
