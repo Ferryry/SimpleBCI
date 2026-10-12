@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SimpleBCI.Library\SimpleBCI.Library.csproj" />
   </ItemGroup>
 
@@ -17,10 +21,7 @@
       <LibraryFiles Include="$(MSBuildProjectDirectory)\..\SimpleBCI.Library\bin\$(Configuration)\$(TargetFramework)\**\*.*" />
     </ItemGroup>
 
-    <Copy
-      SourceFiles="@(LibraryFiles)"
-      DestinationFiles="@(LibraryFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(LibraryFiles)" DestinationFiles="@(LibraryFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
 
   </Target>
 

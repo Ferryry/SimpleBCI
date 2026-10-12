@@ -6,6 +6,7 @@
     public enum BlinkState
     {
         Blinked,
+        DoubleBlinked,
         NotBlinked
     }
 }

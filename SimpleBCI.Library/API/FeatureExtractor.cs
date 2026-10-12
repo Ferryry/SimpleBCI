@@ -24,6 +24,25 @@ namespace SimpleBCI.API
             (13.0, 30.0)    // Beta 13-30 Hz
         };
 
+        /// <summary>
+        /// Extracts 18 features from a raw EEG window containing 512 samples
+        /// per channel, corresponding to a 2-second window at 256 Hz.
+        /// </summary>
+        /// <param name="eegWindow">
+        /// A 2D array containing four EEG channels in the order
+        /// TP9, AF7, AF8, TP10, each with 512 samples.
+        /// </param>
+        /// <returns>
+        /// An array containing 18 extracted features, including relative
+        /// theta, alpha and beta power and inter-channel log-power ratios.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if <paramref name="eegWindow"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Thrown if the input dimensions are incorrect or the EEG samples
+        /// contain non-finite values.
+        /// </exception>
         public double[] ExtractFeatures(double[,] eegWindow)
         {
             ArgumentNullException.ThrowIfNull(eegWindow);
@@ -56,7 +75,7 @@ namespace SimpleBCI.API
                     signal[sample] = value;
                 }
 
-                // Match preprocess_channel() in train_new.py.
+                // Match preprocess_channel() in train.py.
                 signal = DataFilter.detrend(signal, (int)DetrendOperations.CONSTANT);
 
                 signal = DataFilter.perform_bandpass(
@@ -94,7 +113,7 @@ namespace SimpleBCI.API
             }
 
             // Final six values, matching the actual append order in
-            // extract_features() in train_new.py: both ratios per band.
+            // extract_features() in train.py: both ratios per band.
             for (int band = 0; band < Bands.Length; band++)
             {
                 features[index++] = Math.Log(
@@ -108,6 +127,14 @@ namespace SimpleBCI.API
             return features;
         }
 
+        /// <summary>
+        /// Calculates the power within a specified frequency band of an EEG signal
+        /// using Welch's method to estimate the power spectral density (PSD).
+        /// </summary>
+        /// <param name="signal">The EEG signal to analyze.</param>
+        /// <param name="low">The lower frequency boundary of the band in Hz.</param>
+        /// <param name="high">The upper frequency boundary of the band in Hz.</param>
+        /// <returns>The estimated power within the specified frequency band.</returns>
         private static double GetBandPower(double[] signal, double low, double high)
         {
             Tuple<double[], double[]> psd = DataFilter.get_psd_welch(
