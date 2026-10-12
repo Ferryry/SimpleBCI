@@ -4,8 +4,21 @@
     {
         public static void Main()
         {
-            SimpleTestApplication simpleTestApplication = new SimpleTestApplication();
-            simpleTestApplication.Run();
+            Console.Write("Choose test application (1) motor imagery or (2) blink state: ");
+
+            switch(Console.ReadKey().Key) {
+                case ConsoleKey.D1:
+                    SimpleTestApplication simpleTestApplication = new SimpleTestApplication();
+                    simpleTestApplication.Run();
+                    break;
+                case ConsoleKey.D2:
+                    SimpleBlinkTestApplication simpleBlinkTestApplication = new SimpleBlinkTestApplication();
+                    simpleBlinkTestApplication.Run();
+                    break;
+                default:
+                    Console.WriteLine("Key not recognized.");
+                    break;
+            }
         }
     }
 }

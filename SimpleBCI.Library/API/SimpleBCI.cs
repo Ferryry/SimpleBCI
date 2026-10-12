@@ -7,6 +7,7 @@ namespace SimpleBCI
     {
         private readonly BoardShim board;
         private readonly MotorImageryClassifier motorImageryClassifier;
+        private readonly BlinkDetector blinkDetector;
 
         /// <summary>
         /// Converts immutable board to actual brainflow id.
@@ -40,11 +41,12 @@ namespace SimpleBCI
 
         public SimpleBCI(ImmutableBoardSelection immutableBoard)
         {
-            BoardShim.enable_dev_board_logger();
+            //BoardShim.enable_dev_board_logger();
 
             board = CreateBoard(immutableBoard);
 
             motorImageryClassifier = new MotorImageryClassifier(board);
+            blinkDetector = new BlinkDetector(board);
         }
 
         /// <summary>
@@ -54,6 +56,16 @@ namespace SimpleBCI
         public bool IsAPIRunning()
         {
             return board.is_prepared();
+        }
+
+        /// <summary>
+        /// Returns the current blinkstate.
+        /// <see cref="StartAPI"/> must be called before calling this method.
+        /// </summary>
+        /// <returns>Blinkstate.</returns>
+        public BlinkState GetCurrentBlinkState()
+        {
+            return blinkDetector.GetCurrentBlinkState();
         }
 
         /// <summary>
