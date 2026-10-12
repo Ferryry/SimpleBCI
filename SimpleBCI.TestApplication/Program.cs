@@ -4,7 +4,7 @@
     {
         public static void Main()
         {
-            Console.Write("Choose test application (1) motor imagery or (2) blink state: ");
+            Console.Write("Choose test application (1) motor imagery or (2) blink state or (3) JSON-RPC: ");
 
             switch(Console.ReadKey().Key) {
                 case ConsoleKey.D1:
@@ -14,6 +14,10 @@
                 case ConsoleKey.D2:
                     SimpleBlinkTestApplication simpleBlinkTestApplication = new SimpleBlinkTestApplication();
                     simpleBlinkTestApplication.Run();
+                    break;
+                case ConsoleKey.D3:
+                    SimpleJsonRpc simpleJsonRpc = new SimpleJsonRpc();
+                    simpleJsonRpc.Run();
                     break;
                 default:
                     Console.WriteLine("Key not recognized.");

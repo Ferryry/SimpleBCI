@@ -5,8 +5,8 @@
     /// </summary>
     public enum BlinkState
     {
-        Blinked,
-        DoubleBlinked,
-        NotBlinked
+        Blinked = 0,
+        DoubleBlinked = 1,
+        NotBlinked = 2
     }
 }
