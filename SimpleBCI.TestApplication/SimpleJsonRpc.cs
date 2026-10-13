@@ -81,12 +81,20 @@ namespace SimpleBCI.TestApplication
 
             public BlinkState GetBlinkState()
             {
-                return instance.GetCurrentBlinkState();
+                BlinkState result = instance.GetCurrentBlinkState();
+
+                Console.WriteLine($"GetBlinkState() -> {result}");
+
+                return result;
             }
 
             public MotorImageryState GetMotorImageryState()
             {
-                return instance.GetMotorImageryState();
+                MotorImageryState result = instance.GetMotorImageryState();
+
+                Console.WriteLine($"GetMotorImageryState() -> {result}");
+
+                return result;
             }
         }
 
