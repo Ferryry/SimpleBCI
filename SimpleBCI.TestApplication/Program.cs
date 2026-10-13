@@ -4,7 +4,15 @@
     {
         public static void Main()
         {
-            Console.Write("Choose test application (1) motor imagery or (2) blink state or (3) JSON-RPC: ");
+            Console.WriteLine(
+                String.Format(
+                    "Choose test application:\n(1) {0}\n(2) {1}\n(3) {2}\n(4) {3}",
+                    "Motor Imagery",
+                    "Blink State",
+                    "Emotion State",
+                    "JSON-RPC + Blink Test"
+                )
+             );
 
             switch(Console.ReadKey().Key) {
                 case ConsoleKey.D1:
@@ -16,6 +24,10 @@
                     simpleBlinkTestApplication.Run();
                     break;
                 case ConsoleKey.D3:
+                    SimpleFaaTestApplication simpleFaaTestApplication = new SimpleFaaTestApplication();
+                    simpleFaaTestApplication.Run();
+                    break;
+                case ConsoleKey.D4:
                     SimpleJsonRpc simpleJsonRpc = new SimpleJsonRpc();
                     simpleJsonRpc.Run();
                     break;

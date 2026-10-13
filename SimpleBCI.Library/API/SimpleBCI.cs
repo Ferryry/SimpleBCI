@@ -1,5 +1,6 @@
 ﻿using brainflow;
 using SimpleBCI.API;
+using SimpleBCI.Library.API;
 
 namespace SimpleBCI
 {
@@ -8,6 +9,7 @@ namespace SimpleBCI
         private readonly BoardShim board;
         private readonly MotorImageryClassifier motorImageryClassifier;
         private readonly BlinkDetector blinkDetector;
+        private readonly FaaStateCalculator emotionDetector;
 
         /// <summary>
         /// Converts immutable board to actual brainflow id.
@@ -47,6 +49,7 @@ namespace SimpleBCI
 
             motorImageryClassifier = new MotorImageryClassifier(board);
             blinkDetector = new BlinkDetector(board);
+            emotionDetector = new FaaStateCalculator(board);
         }
 
         /// <summary>
@@ -56,6 +59,15 @@ namespace SimpleBCI
         public bool IsAPIRunning()
         {
             return board.is_prepared();
+        }
+
+        /// <summary>
+        /// Returns and estimates the user's most likely emotional state based on EEG data.
+        /// </summary>
+        /// <returns>Estimated emotion state.</returns>
+        public FaaState GetFaaState()
+        {
+            return emotionDetector.GetFaaState();
         }
 
         /// <summary>
@@ -87,6 +99,7 @@ namespace SimpleBCI
             {
                 board.prepare_session();
                 board.start_stream();
+                emotionDetector.StartWorker();
             }
             catch (Exception e)
             {
@@ -102,8 +115,12 @@ namespace SimpleBCI
         /// </summary>
         public void StopAPI()
         {
-            board.stop_stream();
-            board.release_session();
+            emotionDetector.StopWorker().GetAwaiter().GetResult();
+
+            if (IsAPIRunning()) {
+                board.stop_stream();
+                board.release_session();
+            }
         }
     }
 }
