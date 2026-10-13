@@ -6,7 +6,7 @@ namespace SimpleBCI.API
     /// Builds the feature vector expected by SimpleBCI.ML/train.py.
     /// Input rows must be ordered TP9, AF7, AF8, TP10.
     /// </summary>
-    internal sealed class FeatureExtractor
+    internal sealed class MotorImageryFeatureExtractor
     {
         public const int channelCount = 4;
         public const int samplingRate = 256;

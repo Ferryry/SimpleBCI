@@ -71,7 +71,7 @@ namespace SimpleBCI.API
         public BlinkState GetCurrentBlinkState()
         {
             int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-            double[,] data = board.get_current_board_data(FeatureExtractor.windowSize, preset);
+            double[,] data = board.get_current_board_data(MotorImageryFeatureExtractor.windowSize, preset);
             int sampleCount = data.GetLength(1);
 
             if (sampleCount == 0)
