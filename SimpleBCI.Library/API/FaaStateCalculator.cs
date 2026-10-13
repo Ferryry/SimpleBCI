@@ -150,11 +150,11 @@ namespace SimpleBCI.Library.API
         {
             int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
             double[,] data = board.get_current_board_data(
-                FeatureExtractor.windowSize,
+                MotorImageryFeatureExtractor.windowSize,
                 preset);
 
             int sampleCount = data.GetLength(1);
-            if (sampleCount < FeatureExtractor.windowSize)
+            if (sampleCount < MotorImageryFeatureExtractor.windowSize)
             {
                 throw new InvalidOperationException("Not enough EEG data available.");
             }
