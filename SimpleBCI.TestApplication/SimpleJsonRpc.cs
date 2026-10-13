@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using StreamJsonRpc;
 using SimpleBCI.API;
 using System.Dynamic;
+using SimpleBCI.Library.API.States;
 
 namespace SimpleBCI.TestApplication
 {

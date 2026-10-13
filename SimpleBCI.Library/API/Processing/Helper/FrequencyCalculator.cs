@@ -1,4 +1,4 @@
-﻿namespace SimpleBCI.API.Helper
+﻿namespace SimpleBCI.Library.API.Processing.Helper
 {
     internal static class FrequencyCalculator
     {

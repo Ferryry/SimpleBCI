@@ -1,6 +1,7 @@
 using brainflow;
+using SimpleBCI.Library.API.States;
 
-namespace SimpleBCI.API
+namespace SimpleBCI.Library.API.Processing
 {
     /// <summary>
     /// Detects single and double blink events by analyzing EEG signals

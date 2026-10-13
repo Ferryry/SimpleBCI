@@ -1,6 +1,7 @@
 ﻿using brainflow;
 using SimpleBCI.API;
-using SimpleBCI.Library.API;
+using SimpleBCI.Library.API.Processing;
+using SimpleBCI.Library.API.States;
 
 namespace SimpleBCI
 {

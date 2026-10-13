@@ -1,6 +1,7 @@
 using brainflow;
+using SimpleBCI.Library.API.States;
 
-namespace SimpleBCI.API
+namespace SimpleBCI.Library.API.Processing
 {
     public sealed class MotorImageryClassifier
     {

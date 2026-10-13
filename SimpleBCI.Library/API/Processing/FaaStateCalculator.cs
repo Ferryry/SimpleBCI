@@ -1,7 +1,7 @@
 using brainflow;
-using SimpleBCI.API;
+using SimpleBCI.Library.API.States;
 
-namespace SimpleBCI.Library.API
+namespace SimpleBCI.Library.API.Processing
 {
     internal sealed class FaaStateCalculator
     {

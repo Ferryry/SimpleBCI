@@ -1,4 +1,5 @@
 ﻿using SimpleBCI.API;
+using SimpleBCI.Library.API.States;
 using System;
 using System.Collections.Generic;
 using System.Text;

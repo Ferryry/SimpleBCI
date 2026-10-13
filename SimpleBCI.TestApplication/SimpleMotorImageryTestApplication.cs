@@ -1,4 +1,5 @@
 ﻿using SimpleBCI.API;
+using SimpleBCI.Library.API.States;
 
 namespace SimpleBCI.TestApplication
 {

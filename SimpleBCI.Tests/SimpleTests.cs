@@ -1,6 +1,6 @@
 ﻿using brainflow;
 using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
-using SimpleBCI.API;
+using SimpleBCI.Library.API.Processing;
 using System.Reflection;
 
 namespace SimpleBCI.Tests

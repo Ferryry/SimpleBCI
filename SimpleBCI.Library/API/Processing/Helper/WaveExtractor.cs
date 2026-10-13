@@ -1,6 +1,6 @@
 ﻿using brainflow;
 
-namespace SimpleBCI.API.Helper
+namespace SimpleBCI.Library.API.Processing.Helper
 {
     static class WaveExtractor
     {

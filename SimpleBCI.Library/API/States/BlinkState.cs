@@ -1,4 +1,4 @@
-﻿namespace SimpleBCI.API
+﻿namespace SimpleBCI.Library.API.States
 {
     /// <summary>
     /// Avaialable blink states.
