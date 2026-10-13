@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
 using SimpleBCI.Library.API.Processing;
 using System.Reflection;
+using SimpleBCI.API;
 
 namespace SimpleBCI.Tests
 {
@@ -15,7 +16,7 @@ namespace SimpleBCI.Tests
 
         public SimpleTests()
         {
-            simpleBCI = new SimpleBCI();
+            simpleBCI = new SimpleBCI(new ImmutableBoardSelection(BoardIds.MuseAthena));
 
             FieldInfo? field = typeof(SimpleBCI).GetField(
                 "board",
