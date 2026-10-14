@@ -19,6 +19,37 @@ namespace SimpleBCI.Library.API.Processing.Helper
         public static double[] ExtractTheta(double[] raw, int samplingRate)
             => ExtractBand(raw, samplingRate, 4.0, 8.0);
 
+        public static double CalculateMeanSquare(double[] extractedSignal)
+        {
+            if (extractedSignal == null)
+            {
+                throw new ArgumentNullException(nameof(extractedSignal));
+            }
+
+            if (extractedSignal.Length == 0)
+            {
+                throw new ArgumentException(
+                    "Signal is empty.",
+                    nameof(extractedSignal));
+            }
+
+            double sum = 0.0;
+
+            foreach (double sample in extractedSignal)
+            {
+                if (!double.IsFinite(sample))
+                {
+                    throw new ArgumentException(
+                        "Signal contains non-finite values.",
+                        nameof(extractedSignal));
+                }
+
+                sum += sample * sample;
+            }
+
+            return sum / extractedSignal.Length;
+        }
+
         private static double[] ExtractBand(
             double[] raw,
             int samplingRate,
