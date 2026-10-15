@@ -1,6 +1,6 @@
 ﻿using brainflow;
 using SimpleBCI.API;
-using SimpleBCI.Library.API.Processing;
+using SimpleBCI.API.Processing;
 using SimpleBCI.Library.API.States;
 
 namespace SimpleBCI
@@ -11,6 +11,7 @@ namespace SimpleBCI
         private readonly MotorImageryClassifier motorImageryClassifier;
         private readonly BlinkDetector blinkDetector;
         private readonly FaaStateCalculator emotionDetector;
+        private readonly FeatureCalculator featureCalculator;
 
         /// <summary>
         /// Converts immutable board to actual brainflow id.
@@ -21,7 +22,7 @@ namespace SimpleBCI
         {
             BrainFlowInputParams inputParams = new BrainFlowInputParams();
 
-            if (board.id == BoardIds.MuseAthena)
+            if (board.id == API.BoardIds.MuseAthena)
             {
                 inputParams.other_info = "preset=p1041;low_latency=true";
                 return new BoardShim(
@@ -29,7 +30,7 @@ namespace SimpleBCI
                     inputParams);
             }
 
-            if (board.id == BoardIds.Synthetic)
+            if (board.id == API.BoardIds.Synthetic)
             {
                 return new BoardShim(
                     (int)brainflow.BoardIds.SYNTHETIC_BOARD,
@@ -51,6 +52,7 @@ namespace SimpleBCI
             motorImageryClassifier = new MotorImageryClassifier(board);
             blinkDetector = new BlinkDetector(board);
             emotionDetector = new FaaStateCalculator(board);
+            featureCalculator = new FeatureCalculator(board);
         }
 
         /// <summary>
@@ -89,6 +91,21 @@ namespace SimpleBCI
         public MotorImageryState GetMotorImageryState()
         {
             return motorImageryClassifier.GetMotorImageryState();
+        }
+
+        public double[] GetFocusIndex()
+        {
+            return featureCalculator.GetFocusIndex();
+        }
+
+        public double[] GetRelaxationIndex()
+        {
+            return featureCalculator.GetRelaxationIndex();
+        }
+
+        public double[] GetArousalIndex()
+        {
+            return featureCalculator.GetArousalIndex();
         }
 
         /// <summary>
