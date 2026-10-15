@@ -1,4 +1,4 @@
-﻿namespace SimpleBCI
+﻿namespace SimpleBCI.API
 {
     public enum BoardIds
     {

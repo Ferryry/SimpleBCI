@@ -17,7 +17,6 @@ BrainFlow is integrated into the SimpleBCI API and handles communication with
 the selected board and access to its EEG data.
 
 ### System context
-
 ```mermaid
 C4Context
     UpdateLayoutConfig($c4ShapeInRow="1", $c4BoundaryInRow="1")
@@ -35,7 +34,6 @@ C4Context
 ```
 
 ### EEG processing flow
-
 ```mermaid
 flowchart LR
     EEG[Muse S Athena] -->|Raw EEG samples| BF[BrainFlow integrated in SimpleBCI]

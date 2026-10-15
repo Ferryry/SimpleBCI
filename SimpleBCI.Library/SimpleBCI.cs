@@ -1,7 +1,6 @@
 ﻿using brainflow;
 using SimpleBCI.API;
 using SimpleBCI.API.Processing;
-using SimpleBCI.Library.API.Processing;
 using SimpleBCI.Library.API.States;
 
 namespace SimpleBCI
@@ -23,7 +22,7 @@ namespace SimpleBCI
         {
             BrainFlowInputParams inputParams = new BrainFlowInputParams();
 
-            if (board.id == BoardIds.MuseAthena)
+            if (board.id == API.BoardIds.MuseAthena)
             {
                 inputParams.other_info = "preset=p1041;low_latency=true";
                 return new BoardShim(
@@ -31,7 +30,7 @@ namespace SimpleBCI
                     inputParams);
             }
 
-            if (board.id == BoardIds.Synthetic)
+            if (board.id == API.BoardIds.Synthetic)
             {
                 return new BoardShim(
                     (int)brainflow.BoardIds.SYNTHETIC_BOARD,

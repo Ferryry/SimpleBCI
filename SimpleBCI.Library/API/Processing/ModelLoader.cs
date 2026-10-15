@@ -1,6 +1,6 @@
 ﻿using brainflow;
 
-namespace SimpleBCI.Library.API.Processing
+namespace SimpleBCI.API.Processing
 {
     public static class ModelLoader
     {

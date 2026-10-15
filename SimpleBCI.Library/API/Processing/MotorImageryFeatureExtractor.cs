@@ -1,6 +1,6 @@
 using brainflow;
 
-namespace SimpleBCI.Library.API.Processing
+namespace SimpleBCI.API.Processing
 {
     /// <summary>
     /// Builds the feature vector expected by SimpleBCI.ML/train.py.
