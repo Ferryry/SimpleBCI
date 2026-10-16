@@ -1,13 +1,11 @@
 ﻿using SimpleBCI.API;
 using SimpleBCI.API.States;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace SimpleBCI.TestApplication
+namespace SimpleBCI.TestApplication.SimpleTests
 {
-    internal class SimpleFaaTestApplication
+    internal class SimpleFaaTestApplication : ISimpleTestApplication
     {
+        public static string name = "FAA Test (Muse S Athena)";
         private readonly SimpleBCI instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;

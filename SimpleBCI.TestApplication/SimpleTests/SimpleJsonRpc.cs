@@ -2,16 +2,16 @@
 using System.Net.Sockets;
 using StreamJsonRpc;
 using SimpleBCI.API;
-using System.Dynamic;
 using SimpleBCI.API.States;
 
-namespace SimpleBCI.TestApplication
+namespace SimpleBCI.TestApplication.SimpleTests
 {
     /// <summary>
     /// Simple JSON-RPC implementation to use this Api.
     /// </summary>
-    internal class SimpleJsonRpc
+    internal class SimpleJsonRpc : ISimpleTestApplication
     {
+        public static string name = "JsonRPC Test (Muse S Athena)";
         private readonly SimpleBCI instance;
         private readonly int port = 5080;
         private TcpListener listener;

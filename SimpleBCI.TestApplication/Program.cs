@@ -1,39 +1,101 @@
-﻿namespace SimpleBCI.TestApplication
+﻿using System;
+using System.Linq;
+using System.Reflection;
+
+namespace SimpleBCI.TestApplication
 {
     public class Program
     {
-        public static void Main()
-        {
-            Console.WriteLine(
-                String.Format(
-                    "Choose test application:\n(1) {0}\n(2) {1}\n(3) {2}\n(4) {3}",
-                    "Motor Imagery",
-                    "Blink State",
-                    "Emotion State",
-                    "JSON-RPC + Blink Test"
-                )
-             );
+        private const string TestNamespace = "SimpleBCI.TestApplication.SimpleTests";
 
-            switch(Console.ReadKey().Key) {
-                case ConsoleKey.D1:
-                    SimpleTestApplication simpleTestApplication = new SimpleTestApplication();
-                    simpleTestApplication.Run();
-                    break;
-                case ConsoleKey.D2:
-                    SimpleBlinkTestApplication simpleBlinkTestApplication = new SimpleBlinkTestApplication();
-                    simpleBlinkTestApplication.Run();
-                    break;
-                case ConsoleKey.D3:
-                    SimpleFaaTestApplication simpleFaaTestApplication = new SimpleFaaTestApplication();
-                    simpleFaaTestApplication.Run();
-                    break;
-                case ConsoleKey.D4:
-                    SimpleJsonRpc simpleJsonRpc = new SimpleJsonRpc();
-                    simpleJsonRpc.Run();
-                    break;
-                default:
-                    Console.WriteLine("Key not recognized.");
-                    break;
+        static void Main(string[] args)
+        {
+            Assembly assembly = typeof(Program).Assembly;
+
+            var testTypes = assembly.GetTypes()
+                .Where(t =>
+                    t.IsClass &&
+                    !t.IsAbstract &&
+                    !t.IsInterface &&
+                    t.Namespace == TestNamespace &&
+                    typeof(ISimpleTestApplication).IsAssignableFrom(t) &&
+                    t.GetField(
+                        "name",
+                        BindingFlags.Public | BindingFlags.Static
+                    )?.FieldType == typeof(string) &&
+                    t.GetConstructor(Type.EmptyTypes) != null)
+                .Select(t => new
+                {
+                    Type = t,
+                    Name = (string)t.GetField(
+                        "name",
+                        BindingFlags.Public | BindingFlags.Static
+                    )!.GetValue(null)!
+                })
+                .OrderBy(t => t.Name)
+                .ToList();
+
+            if (testTypes.Count == 0)
+            {
+                Console.WriteLine("No test applications found.");
+                return;
+            }
+
+            Console.WriteLine("=== Available test applications ===");
+
+            for (int i = 0; i < testTypes.Count; i++)
+            {
+                Console.WriteLine($"{i + 1}: {testTypes[i].Name}");
+            }
+
+            Console.WriteLine("Q: Quit");
+            Console.Write("Select test application: ");
+
+            string? input = Console.ReadLine()?.Trim();
+
+            if (string.IsNullOrEmpty(input) ||
+                input.Equals("q", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var selected = int.TryParse(input, out int index) &&
+                           index >= 1 &&
+                           index <= testTypes.Count
+                ? testTypes[index - 1]
+                : testTypes.FirstOrDefault(t =>
+                    string.Equals(
+                        t.Name,
+                        input,
+                        StringComparison.OrdinalIgnoreCase));
+
+            if (selected == null)
+            {
+                Console.WriteLine("Invalid selection.");
+                return;
+            }
+
+            StartTest(selected.Type);
+        }
+
+        private static void StartTest(Type type)
+        {
+            try
+            {
+                Console.WriteLine($"\nStarting: {type.Name}");
+
+                if (Activator.CreateInstance(type)
+                    is not ISimpleTestApplication instance)
+                {
+                    Console.WriteLine("Could not create test application.");
+                    return;
+                }
+
+                instance.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
             }
         }
     }

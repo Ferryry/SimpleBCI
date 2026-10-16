@@ -1,10 +1,11 @@
 ﻿using SimpleBCI.API;
 using SimpleBCI.API.States;
 
-namespace SimpleBCI.TestApplication
+namespace SimpleBCI.TestApplication.SimpleTests
 {
-    internal class SimpleTestApplication
+    internal class SimpleBlinkTestApplication : ISimpleTestApplication
     {
+        public static string name = "Blink Test (Muse S Athena)";
         private readonly SimpleBCI instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;
@@ -20,10 +21,10 @@ namespace SimpleBCI.TestApplication
         /// Formats the current Brainstate info and prints it.
         /// </summary>
         /// <param name="state">Current brainstate obtained by the SimpleBCI API.</param>
-        private void PrintCurrentState(MotorImageryState state)
+        private void PrintCurrentState(BlinkState state)
         {
             Console.WriteLine(String.Format(
-                "{0}[{1}] Prediction: {2}\n",
+                "{0}[{1}] Blink Prediction: {2}\n",
                 "############ Prediction Update ############\n",
                 DateTime.UtcNow,
                 state.ToString()
@@ -90,7 +91,7 @@ namespace SimpleBCI.TestApplication
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
-                    PrintCurrentState(instance.GetMotorImageryState());
+                    PrintCurrentState(instance.GetCurrentBlinkState());
 
                     switch (displayDelay) {
                         case DisplayDelay.HalfSecond:
@@ -127,7 +128,7 @@ namespace SimpleBCI.TestApplication
             instance.StopAPI();
         }
 
-        public SimpleTestApplication()
+        public SimpleBlinkTestApplication()
         {
             instance = new SimpleBCI(
                 new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
