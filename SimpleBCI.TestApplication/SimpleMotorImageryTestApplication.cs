@@ -1,5 +1,5 @@
 ﻿using SimpleBCI.API;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI.TestApplication
 {
@@ -83,6 +83,8 @@ namespace SimpleBCI.TestApplication
             {
                 instance.StartAPI();
 
+                Thread.Sleep(1000);
+
                 Thread thread = new Thread(BackgroundInputThread);
                 thread.Start();
 
@@ -127,7 +129,10 @@ namespace SimpleBCI.TestApplication
 
         public SimpleTestApplication()
         {
-            instance = new SimpleBCI(new ImmutableBoardSelection(BoardIds.MuseAthena));
+            instance = new SimpleBCI(
+                new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
+                new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
+
             cancellationTokenSource = new CancellationTokenSource();
         }
     }

@@ -1,4 +1,4 @@
-﻿namespace SimpleBCI.Library.API.States
+﻿namespace SimpleBCI.API.States
 {
 
     /// <summary>

@@ -1,4 +1,5 @@
-﻿using brainflow;
+using brainflow;
+using SimpleBCI.API;
 using SimpleBCI.API.Processing;
 using SimpleBCI.API.Processing.Helper;
 
@@ -7,36 +8,37 @@ namespace SimpleBCI.API.Processing
     internal class FeatureCalculator
     {
         private readonly BoardShim board;
+        private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int[] eegChannels;
+        private readonly int af7Channel;
+        private readonly int af8Channel;
 
-        public FeatureCalculator(BoardShim board)
+        public FeatureCalculator(BoardShim board, ImmutableBoardInformation boardInformation)
         {
             if (board == null)
             {
                 throw new ArgumentNullException(nameof(board));
             }
 
+            ArgumentNullException.ThrowIfNull(boardInformation);
+
             this.board = board;
+            this.boardInformation = boardInformation;
+            samplingRate = boardInformation.SamplingRate;
 
-            int boardId = board.get_board_id();
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-            samplingRate = BoardShim.get_sampling_rate(boardId, preset);
-            eegChannels = BoardShim.get_eeg_channels(boardId, preset);
-
-            if (eegChannels.Length < 3)
+            if (!boardInformation.Channels.TryGetValue("AF7", out af7Channel) ||
+                !boardInformation.Channels.TryGetValue("AF8", out af8Channel))
             {
-                throw new InvalidOperationException(
-                    "The board must provide EEG channels for AF7 and AF8.");
+                throw new NotSupportedException(
+                    "Feature calculation requires EEG channels named AF7 and AF8.");
             }
         }
 
         private (double[] Af7, double[] Af8) GetAfSignals()
         {
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
             double[,] data = board.get_current_board_data(
-                MotorImageryFeatureExtractor.windowSize,
-                preset);
+                MotorImageryFeatureExtractor.WindowSize,
+                boardInformation.Preset);
             int sampleCount = data.GetLength(1);
 
             if (sampleCount == 0)
@@ -45,15 +47,13 @@ namespace SimpleBCI.API.Processing
                     "Not enough EEG samples are available to calculate the index.");
             }
 
-            int af7Row = eegChannels[1];
-            int af8Row = eegChannels[2];
             double[] af7 = new double[sampleCount];
             double[] af8 = new double[sampleCount];
 
             for (int i = 0; i < sampleCount; i++)
             {
-                af7[i] = data[af7Row, i];
-                af8[i] = data[af8Row, i];
+                af7[i] = data[af7Channel, i];
+                af8[i] = data[af8Channel, i];
             }
 
             return (af7, af8);
@@ -129,3 +129,4 @@ namespace SimpleBCI.API.Processing
         }
     }
 }
+

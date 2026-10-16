@@ -1,5 +1,6 @@
 using brainflow;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI.API.Processing
 {
@@ -8,10 +9,13 @@ namespace SimpleBCI.API.Processing
         private const int WindowCount = 5;
         private const int Nfft = 256;
         private const int Overlap = 128;
+        private const double WindowDurationSeconds = 2.0;
 
         private readonly BoardShim board;
+        private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int[] eegChannels;
+        private readonly int af7Channel;
+        private readonly int af8Channel;
         private readonly object stateLock = new object();
         private readonly object workerLock = new object();
         private readonly Queue<double> faaHistory = new Queue<double>();
@@ -20,24 +24,29 @@ namespace SimpleBCI.API.Processing
         private CancellationTokenSource? workerCancellation;
         private Task? workerTask;
 
-        public FaaStateCalculator(BoardShim board)
+        public FaaStateCalculator(
+            BoardShim board,
+            ImmutableBoardInformation boardInformation)
         {
             if (board == null)
             {
                 throw new ArgumentNullException(nameof(board));
             }
 
-            this.board = board;
-
-            int boardId = board.get_board_id();
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-            samplingRate = BoardShim.get_sampling_rate(boardId, preset);
-            eegChannels = BoardShim.get_eeg_channels(boardId, preset);
-
-            if (eegChannels.Length < 3)
+            if (boardInformation == null)
             {
-                throw new InvalidOperationException(
-                    "The board must provide EEG channels for AF7 and AF8.");
+                throw new ArgumentNullException(nameof(boardInformation));
+            }
+
+            this.board = board;
+            this.boardInformation = boardInformation;
+            samplingRate = boardInformation.SamplingRate;
+
+            if (!boardInformation.Channels.TryGetValue("AF7", out af7Channel) ||
+                !boardInformation.Channels.TryGetValue("AF8", out af8Channel))
+            {
+                throw new NotSupportedException(
+                    "FAA calculation requires EEG channels named AF7 and AF8.");
             }
         }
 
@@ -148,20 +157,16 @@ namespace SimpleBCI.API.Processing
 
         internal void UpdateFaaState()
         {
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-            double[,] data = board.get_current_board_data(
-                MotorImageryFeatureExtractor.windowSize,
-                preset);
+            int windowSampleCount = (int)Math.Ceiling(samplingRate * WindowDurationSeconds);
+            double[,] data = board.get_current_board_data(windowSampleCount, boardInformation.Preset);
 
             int sampleCount = data.GetLength(1);
-            if (sampleCount < MotorImageryFeatureExtractor.windowSize)
+            if (sampleCount < windowSampleCount)
             {
                 throw new InvalidOperationException("Not enough EEG data available.");
             }
 
-            int af7Row = eegChannels[1];
-            int af8Row = eegChannels[2];
-            if (data.GetLength(0) <= Math.Max(af7Row, af8Row))
+            if (data.GetLength(0) <= Math.Max(af7Channel, af8Channel))
             {
                 throw new InvalidOperationException("AF7 or AF8 channel is missing from the board data.");
             }
@@ -170,14 +175,12 @@ namespace SimpleBCI.API.Processing
             double[] af8 = new double[sampleCount];
             for (int i = 0; i < sampleCount; i++)
             {
-                af7[i] = data[af7Row, i];
-                af8[i] = data[af8Row, i];
+                af7[i] = data[af7Channel, i];
+                af8[i] = data[af8Channel, i];
             }
 
-            var psdAF7 = DataFilter.get_psd_welch(
-                af7, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
-            var psdAF8 = DataFilter.get_psd_welch(
-                af8, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
+            var psdAF7 = DataFilter.get_psd_welch(af7, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
+            var psdAF8 = DataFilter.get_psd_welch(af8, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
 
             double alphaPowerAF7 = DataFilter.get_band_power(psdAF7, 8.0, 13.0);
             double alphaPowerAF8 = DataFilter.get_band_power(psdAF8, 8.0, 13.0);
@@ -216,3 +219,4 @@ namespace SimpleBCI.API.Processing
         }
     }
 }
+

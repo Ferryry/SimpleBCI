@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using StreamJsonRpc;
 using SimpleBCI.API;
 using System.Dynamic;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI.TestApplication
 {
@@ -20,7 +20,8 @@ namespace SimpleBCI.TestApplication
         public SimpleJsonRpc()
         {
             instance = new SimpleBCI(
-                new ImmutableBoardSelection(BoardIds.MuseAthena));
+                new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
+                new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
 
             cancellationTokenSource = new CancellationTokenSource();
 
