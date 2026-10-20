@@ -36,12 +36,11 @@ C4Context
 ### EEG processing flow
 ```mermaid
 flowchart LR
-    EEG[Muse S Athena] -->|Raw EEG samples| BF[BrainFlow integrated in SimpleBCI]
-    BF --> BUFFER[Buffered EEG data]
+    EEG[Brain-Computer Interface] -->|Raw EEG samples| Simple[SimpleBCI API]
 
-    BUFFER --> BLINK[Blink detection]
-    BUFFER --> FAA[Frontal alpha asymmetry]
-    BUFFER --> MI[Motor imagery classification]
+    Simple --> BLINK[Blink detection]
+    Simple --> FAA[Frontal alpha asymmetry]
+    Simple --> MI[Motor imagery classification]
 
     BLINK --> RESULT[Derived state]
     FAA --> RESULT
@@ -58,7 +57,7 @@ The library currently provides a facade for accessing derived states:
 - Frontal alpha asymmetry (FAA) state
 - Blink detection: no blink, single blink, or double blink
 
-The library uses BrainFlow to access board data. Classification and state
+The library access board data. Classification and state
 calculation are performed locally in the library. Supported sources include
 the Muse S Athena and BrainFlow's synthetic board.
 
@@ -72,12 +71,12 @@ it in an application.
 - `SimpleBCI.Library`: C# library and public API
 - `SimpleBCI.TestApplication`: example application
 - `SimpleBCI.Tests`: unit tests (rudimentary) 
-- `SimpleBCI.ML`: scripts and data used for the motor imagery model
+- (Dropped) ~~`SimpleBCI.ML`: scripts and data used for the motor imagery model~~
 
 ## Requirements
 
 - .NET 10 SDK
-- A supported BrainFlow board, such as the Muse S, or the synthetic board
+- Brain-Computer Interface (BCI), such as the Muse S Athena, a synthetic board or other
 
 ## Build
 

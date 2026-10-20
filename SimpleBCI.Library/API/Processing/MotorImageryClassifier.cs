@@ -1,5 +1,5 @@
 using brainflow;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI.API.Processing
 {
@@ -28,10 +28,10 @@ namespace SimpleBCI.API.Processing
                 boardId,
                 (int)BrainFlowPresets.DEFAULT_PRESET);
 
-            if (samplingRate != MotorImageryFeatureExtractor.samplingRate)
+            if (samplingRate != MotorImageryFeatureExtractor.SamplingRate)
             {
                 throw new ArgumentException(
-                    $"The model requires {MotorImageryFeatureExtractor.samplingRate} Hz EEG data; " +
+                    $"The model requires {MotorImageryFeatureExtractor.SamplingRate} Hz EEG data; " +
                     $"the selected board provides {samplingRate} Hz.",
                     nameof(board));
             }
@@ -40,11 +40,11 @@ namespace SimpleBCI.API.Processing
                 boardId,
                 (int)BrainFlowPresets.DEFAULT_PRESET);
 
-            if (eegChannels.Length < MotorImageryFeatureExtractor.channelCount)
+            if (eegChannels.Length < MotorImageryFeatureExtractor.ChannelCount)
             {
                 throw new ArgumentException(
                     $"The selected board exposes {eegChannels.Length} EEG channels; " +
-                    $"the model requires {MotorImageryFeatureExtractor.channelCount}.",
+                    $"the model requires {MotorImageryFeatureExtractor.ChannelCount}.",
                     nameof(board));
             }
 
@@ -107,10 +107,10 @@ namespace SimpleBCI.API.Processing
         public MotorImageryState GetMotorImageryState()
         {
             double[,] data = board.get_current_board_data(
-                MotorImageryFeatureExtractor.windowSize,
+                MotorImageryFeatureExtractor.WindowSize,
                 (int)BrainFlowPresets.DEFAULT_PRESET);
 
-            if (data.GetLength(1) < MotorImageryFeatureExtractor.windowSize)
+            if (data.GetLength(1) < MotorImageryFeatureExtractor.WindowSize)
             {
                 return MotorImageryState.Neutral;
             }
@@ -118,7 +118,7 @@ namespace SimpleBCI.API.Processing
             int[] eegChannels = BoardShim.get_eeg_channels(
                 board.get_board_id(),
                 (int)BrainFlowPresets.DEFAULT_PRESET);
-            if (eegChannels.Length < MotorImageryFeatureExtractor.channelCount)
+            if (eegChannels.Length < MotorImageryFeatureExtractor.ChannelCount)
             {
                 throw new InvalidOperationException(
                     "The selected board no longer exposes the four EEG channels " +
@@ -126,12 +126,12 @@ namespace SimpleBCI.API.Processing
             }
 
             var window = new double[
-                MotorImageryFeatureExtractor.channelCount,
-                MotorImageryFeatureExtractor.windowSize];
+                MotorImageryFeatureExtractor.ChannelCount,
+                MotorImageryFeatureExtractor.WindowSize];
 
             // Muse's default EEG preset exposes channels in the trained order:
             // TP9, AF7, AF8, TP10. BoardShim data rows use board-wide channel indices.
-            for (int channel = 0; channel < MotorImageryFeatureExtractor.channelCount; channel++)
+            for (int channel = 0; channel < MotorImageryFeatureExtractor.ChannelCount; channel++)
             {
                 int sourceRow = eegChannels[channel];
                 if (sourceRow < 0 || sourceRow >= data.GetLength(0))
@@ -140,11 +140,11 @@ namespace SimpleBCI.API.Processing
                         $"BrainFlow returned an invalid EEG row index ({sourceRow}).");
                 }
 
-                for (int sample = 0; sample < MotorImageryFeatureExtractor.windowSize; sample++)
+                for (int sample = 0; sample < MotorImageryFeatureExtractor.WindowSize; sample++)
                 {
                     window[channel, sample] = data[
                         sourceRow,
-                        data.GetLength(1) - MotorImageryFeatureExtractor.windowSize + sample];
+                        data.GetLength(1) - MotorImageryFeatureExtractor.WindowSize + sample];
                 }
             }
 
@@ -152,3 +152,5 @@ namespace SimpleBCI.API.Processing
         }
     }
 }
+
+

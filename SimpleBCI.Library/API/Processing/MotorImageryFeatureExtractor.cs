@@ -8,14 +8,14 @@ namespace SimpleBCI.API.Processing
     /// </summary>
     internal sealed class MotorImageryFeatureExtractor
     {
-        public const int channelCount = 4;
-        public const int samplingRate = 256;
-        public const int windowSize = 512;
-        public const int featureCount = 18;
-        private const int welchNfft = 256;
-        private const int welchOverlap = 128;
-        private const int filterOrder = 4;
-        private const double epsilon = 1e-12;
+        public const int ChannelCount = 4;
+        public const int SamplingRate = 256;
+        public const int WindowSize = 512;
+        public const int FeatureCount = 18;
+        private const int WelchNfft = 256;
+        private const int WelchOverlap = 128;
+        private const int FilterOrder = 4;
+        private const double Epsilon = 1e-12;
 
         private static readonly (double Low, double High)[] Bands =
         {
@@ -47,21 +47,21 @@ namespace SimpleBCI.API.Processing
         {
             ArgumentNullException.ThrowIfNull(eegWindow);
 
-            if (eegWindow.GetLength(0) != channelCount ||
-                eegWindow.GetLength(1) != windowSize)
+            if (eegWindow.GetLength(0) != ChannelCount ||
+                eegWindow.GetLength(1) != WindowSize)
             {
                 throw new ArgumentException(
-                    $"Expected {channelCount} EEG channels with {windowSize} samples each, " +
+                    $"Expected {ChannelCount} EEG channels with {WindowSize} samples each, " +
                     "ordered TP9, AF7, AF8, TP10.",
                     nameof(eegWindow));
             }
 
-            double[,] relativePower = new double[channelCount, Bands.Length];
+            double[,] relativePower = new double[ChannelCount, Bands.Length];
 
-            for (int channel = 0; channel < channelCount; channel++)
+            for (int channel = 0; channel < ChannelCount; channel++)
             {
-                var signal = new double[windowSize];
-                for (int sample = 0; sample < windowSize; sample++)
+                var signal = new double[WindowSize];
+                for (int sample = 0; sample < WindowSize; sample++)
                 {
                     double value = eegWindow[channel, sample];
                     if (!double.IsFinite(value))
@@ -80,17 +80,17 @@ namespace SimpleBCI.API.Processing
 
                 signal = DataFilter.perform_bandpass(
                     signal,
-                    samplingRate,
+                    SamplingRate,
                     4.0,
                     30.0,
-                    filterOrder,
+                    FilterOrder,
                     (int)FilterTypes.BUTTERWORTH,
                     0.0
                 );
 
                 double totalPower = Math.Max(
                     GetBandPower(signal, 4.0, 30.0),
-                    epsilon
+                    Epsilon
                 );
 
                 for (int band = 0; band < Bands.Length; band++)
@@ -100,11 +100,11 @@ namespace SimpleBCI.API.Processing
                 }
             }
 
-            var features = new double[featureCount];
+            var features = new double[FeatureCount];
             int index = 0;
 
             // First 12 values: theta, alpha and beta relative power per channel.
-            for (int channel = 0; channel < channelCount; channel++)
+            for (int channel = 0; channel < ChannelCount; channel++)
             {
                 for (int band = 0; band < Bands.Length; band++)
                 {
@@ -117,11 +117,11 @@ namespace SimpleBCI.API.Processing
             for (int band = 0; band < Bands.Length; band++)
             {
                 features[index++] = Math.Log(
-                    (relativePower[1, band] + epsilon) /
-                    (relativePower[2, band] + epsilon));
+                    (relativePower[1, band] + Epsilon) /
+                    (relativePower[2, band] + Epsilon));
                 features[index++] = Math.Log(
-                    (relativePower[0, band] + epsilon) /
-                    (relativePower[3, band] + epsilon));
+                    (relativePower[0, band] + Epsilon) /
+                    (relativePower[3, band] + Epsilon));
             }
 
             return features;
@@ -139,9 +139,9 @@ namespace SimpleBCI.API.Processing
         {
             Tuple<double[], double[]> psd = DataFilter.get_psd_welch(
                 signal,
-                welchNfft,
-                welchOverlap,
-                samplingRate,
+                WelchNfft,
+                WelchOverlap,
+                SamplingRate,
                 (int)WindowOperations.HANNING);
 
             return DataFilter.get_band_power(psd, low, high);

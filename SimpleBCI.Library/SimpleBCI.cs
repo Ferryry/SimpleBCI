@@ -1,59 +1,109 @@
-﻿using brainflow;
+using brainflow;
 using SimpleBCI.API;
 using SimpleBCI.API.Processing;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI
 {
+    /// <summary>
+    /// Provides access to supported BCI features such as blink detection,
+    /// FAA calculation, and motor imagery classification.
+    /// </summary>
     public sealed class SimpleBCI
     {
         private readonly BoardShim board;
-        private readonly MotorImageryClassifier motorImageryClassifier;
-        private readonly BlinkDetector blinkDetector;
-        private readonly FaaStateCalculator emotionDetector;
-        private readonly FeatureCalculator featureCalculator;
+        private readonly BoardType boardType;
+        private readonly IBoardConfiguration? boardConfiguration;
+        // Temporarily disabled while the classifier's sampling-rate handling is revised.
+        // private readonly MotorImageryClassifier? motorImageryClassifier;
+        private readonly BlinkDetector? blinkDetector;
+        private readonly FaaStateCalculator? emotionDetector;
+        // private readonly FeatureCalculator? featureCalculator;
+        private readonly ImmutableBoardInformation boardInfo;
 
         /// <summary>
-        /// Converts immutable board to actual brainflow id.
+        /// Creates a SimpleBCI instance for the selected board.
         /// </summary>
-        /// <param name="board">Created immutabled board to be converted.</param>
-        /// <returns>BoardShim instance.</returns>
-        private BoardShim CreateBoard(ImmutableBoardSelection board)
+        /// <param name="selection">The board to use.</param>
+        /// <param name="channelLayout">
+        /// Optional: Electrode names in order of EEG data inputs,
+        /// i.e. ["TP9", "AF7", "AF8", "TP10"].
+        /// </param>
+        public SimpleBCI(SimpleBCIBoardSelection selection, SimpleBCIParameters? parameters = null)
+        {
+            ArgumentNullException.ThrowIfNull(selection);
+
+            if (parameters == null)
+            {
+                parameters = new SimpleBCIParameters();
+            }
+
+            boardType = selection.Board;
+            boardConfiguration = parameters.BoardConfiguration;
+            if (boardConfiguration is not null && boardConfiguration.BoardType != boardType)
+            {
+                throw new ArgumentException(
+                    $"The supplied board configuration targets {boardConfiguration.BoardType}, " +
+                    $"but the selected board is {boardType}.",
+                    nameof(parameters));
+            }
+
+            board = CreateBoard(selection, parameters);
+            boardInfo = CreateBoardInformation(board, parameters);
+
+            blinkDetector = TryCreateFeature(() => new BlinkDetector(board, boardInfo));
+            emotionDetector = TryCreateFeature(() => new FaaStateCalculator(board, boardInfo));
+            // motorImageryClassifier = TryCreateFeature(() => new MotorImageryClassifier(board));
+        }
+
+        private BoardShim CreateBoard(SimpleBCIBoardSelection selection, SimpleBCIParameters parameters)
         {
             BrainFlowInputParams inputParams = new BrainFlowInputParams();
 
-            if (board.id == API.BoardIds.MuseAthena)
+            if (parameters.SerialPort is not null)
             {
-                inputParams.other_info = "preset=p1041;low_latency=true";
-                return new BoardShim(
-                    (int)brainflow.BoardIds.MUSE_S_ATHENA_BOARD,
-                    inputParams);
+                inputParams.serial_port = parameters.SerialPort;
             }
 
-            if (board.id == API.BoardIds.Synthetic)
+            if (parameters.SerialNumber is not null)
             {
-                return new BoardShim(
-                    (int)brainflow.BoardIds.SYNTHETIC_BOARD,
-                    inputParams);
+                inputParams.serial_number = parameters.SerialNumber;
             }
 
-            throw new ArgumentOutOfRangeException(
-                nameof(board),
-                board.id,
-                "The selected board is not supported.");
+            if (parameters.AdditionalParams is not null)
+            {
+                inputParams.other_info = parameters.AdditionalParams;
+            }
+
+            return new BoardShim((int)selection.Board, inputParams);
         }
 
-        public SimpleBCI(ImmutableBoardSelection immutableBoard)
+        private static ImmutableBoardInformation CreateBoardInformation(BoardShim board, SimpleBCIParameters parameters)
         {
-            //BoardShim.enable_dev_board_logger();
-
-            board = CreateBoard(immutableBoard);
-
-            motorImageryClassifier = new MotorImageryClassifier(board);
-            blinkDetector = new BlinkDetector(board);
-            emotionDetector = new FaaStateCalculator(board);
-            featureCalculator = new FeatureCalculator(board);
+            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
+            return new ImmutableBoardInformation(board.get_board_id(), preset, parameters);
         }
+
+        /// <summary>
+        /// Tries to create a feature and returns null if the selected board does not support it.
+        /// </summary>
+        /// <typeparam name="T">The feature component type.</typeparam>
+        /// <param name="create">A function that creates the feature component.</param>
+        /// <returns>The created component, or null if the board does not support the feature.</returns>
+        private static T? TryCreateFeature<T>(Func<T> create) where T : class
+        {
+            try
+            {
+                return create();
+            }
+            catch (NotSupportedException)
+            {
+                return null;
+            }
+        }
+
+        private static NotSupportedException FeatureNotSupported(string feature) =>
+            new NotSupportedException($"{feature} is not supported by the selected board.");
 
         /// <summary>
         /// Checks current API status.
@@ -70,6 +120,11 @@ namespace SimpleBCI
         /// <returns>Estimated emotion state.</returns>
         public FaaState GetFaaState()
         {
+            if (emotionDetector == null)
+            {
+                throw FeatureNotSupported("FAA calculation");
+            }
+
             return emotionDetector.GetFaaState();
         }
 
@@ -80,6 +135,12 @@ namespace SimpleBCI
         /// <returns>Blinkstate.</returns>
         public BlinkState GetCurrentBlinkState()
         {
+            if (blinkDetector == null)
+            {
+                throw FeatureNotSupported(
+                    "Blink detection (requires AF7 and AF8 to be mapped to EEG inputs)");
+            }
+
             return blinkDetector.GetCurrentBlinkState();
         }
 
@@ -90,23 +151,23 @@ namespace SimpleBCI
         /// <returns>Brainstate.</returns>
         public MotorImageryState GetMotorImageryState()
         {
-            return motorImageryClassifier.GetMotorImageryState();
+            throw FeatureNotSupported("Motor imagery classification (temporarily disabled)");
         }
 
-        public double[] GetFocusIndex()
+        /*public double[] GetFocusIndex()
         {
-            return featureCalculator.GetFocusIndex();
+            return (featureCalculator ?? throw FeatureNotSupported("Focus index calculation")).GetFocusIndex();
         }
 
         public double[] GetRelaxationIndex()
         {
-            return featureCalculator.GetRelaxationIndex();
+            return (featureCalculator ?? throw FeatureNotSupported("Relaxation index calculation")).GetRelaxationIndex();
         }
 
         public double[] GetArousalIndex()
         {
-            return featureCalculator.GetArousalIndex();
-        }
+            return (featureCalculator ?? throw FeatureNotSupported("Arousal index calculation")).GetArousalIndex();
+        }*/
 
         /// <summary>
         /// Starts the API.
@@ -117,15 +178,15 @@ namespace SimpleBCI
             {
                 board.prepare_session();
                 board.start_stream();
-                emotionDetector.StartWorker();
+                boardConfiguration?.Apply(new BrainFlowBoardConfigurationContext(board));
+                emotionDetector?.StartWorker();
+                return true;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                return false;
+                ReleaseBoardAfterFailedStart();
+                throw WrapBoardException("Could not start the selected EEG board.", e);
             }
-
-            return true;
         }
 
         /// <summary>
@@ -133,12 +194,75 @@ namespace SimpleBCI
         /// </summary>
         public void StopAPI()
         {
-            emotionDetector.StopWorker().GetAwaiter().GetResult();
+            try
+            {
+                emotionDetector?.StopWorker().GetAwaiter().GetResult();
 
-            if (IsAPIRunning()) {
-                board.stop_stream();
-                board.release_session();
+                if (IsAPIRunning())
+                {
+                    board.stop_stream();
+                    board.release_session();
+                }
+            }
+            catch (Exception e)
+            {
+                throw WrapBoardException("Could not stop the selected EEG board.", e);
+            }
+        }
+
+        private static SimpleBCIException WrapBoardException(string message, Exception exception)
+        {
+            string detail = exception.Message;
+            if (exception is BrainFlowError)
+            {
+                detail = "The EEG board could not be accessed. Check that it is connected, " +
+                         "powered on, and available on the configured port.";
+            }
+
+            return new SimpleBCIException($"{message} {detail}");
+        }
+
+        private void ReleaseBoardAfterFailedStart()
+        {
+            try
+            {
+                if (board.is_prepared())
+                {
+                    board.stop_stream();
+                    board.release_session();
+                }
+            }
+            catch
+            {
+                // Preserve the startup failure as the error reported to the caller.
+            }
+        }
+
+        private sealed class BrainFlowBoardConfigurationContext : IBoardConfigurationContext
+        {
+            private readonly BoardShim board;
+
+            public BrainFlowBoardConfigurationContext(BoardShim board)
+            {
+                this.board = board;
+            }
+
+            public void SendCommand(string command)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(command);
+                board.config_board(command);
+            }
+
+            public void Wait(TimeSpan duration)
+            {
+                if (duration < TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(duration));
+                }
+
+                Thread.Sleep(duration);
             }
         }
     }
 }
+

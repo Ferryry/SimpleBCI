@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SimpleBCI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="brainflow" Version="5.22.2" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
 

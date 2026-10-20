@@ -1,5 +1,5 @@
 using brainflow;
-using SimpleBCI.Library.API.States;
+using SimpleBCI.API.States;
 
 namespace SimpleBCI.API.Processing
 {
@@ -10,8 +10,10 @@ namespace SimpleBCI.API.Processing
     internal class BlinkDetector
     {
         private readonly BoardShim board;
+        private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int[] eegChannels;
+        private readonly int af7Channel;
+        private readonly int af8Channel;
         private readonly int timestampChannel;
 
         private double lastProcessedTimestamp = double.NegativeInfinity;
@@ -22,6 +24,7 @@ namespace SimpleBCI.API.Processing
         private const double MinBlinkDuration = 0.05;
         private const double DoubleBlinkWindow = 1.2;
         private const double ChannelMergeWindow = 0.1;
+        private const double AnalysisWindowSeconds = 2.0;
 
         /// <summary>
         /// Initializes the blink detector using the specified BrainFlow board
@@ -33,28 +36,33 @@ namespace SimpleBCI.API.Processing
         /// <exception cref="ArgumentNullException">
         /// Thrown if <paramref name="board"/> is null.
         /// </exception>
-        /// <exception cref="InvalidOperationException">
-        /// Thrown if the board does not provide enough EEG channels.
+        /// <exception cref="NotSupportedException">
+        /// Thrown if the board does not provide AF7 and AF8 EEG channels.
         /// </exception>
-        public BlinkDetector(BoardShim board)
+        public BlinkDetector(BoardShim board, ImmutableBoardInformation boardInformation)
         {
             if (board == null)
             {
                 throw new ArgumentNullException(nameof(board));
             }
 
-            this.board = board;
-
-            int boardId = board.get_board_id();
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-
-            samplingRate = BoardShim.get_sampling_rate(boardId, preset);
-            eegChannels = BoardShim.get_eeg_channels(boardId, preset);
-            timestampChannel = BoardShim.get_timestamp_channel(boardId, preset);
-
-            if (eegChannels.Length < 3)
+            if (boardInformation == null)
             {
-                throw new InvalidOperationException("The board must provide EEG channels for AF7 and AF8.");
+                throw new ArgumentNullException(nameof(boardInformation));
+            }
+
+            this.board = board;
+            this.boardInformation = boardInformation;
+            samplingRate = boardInformation.SamplingRate;
+            timestampChannel = BoardShim.get_timestamp_channel(
+                board.get_board_id(),
+                boardInformation.Preset);
+
+            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
+                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
+            {
+                throw new NotSupportedException(
+                    "Blink detection requires EEG channels named AF7 and AF8.");
             }
         }
 
@@ -71,8 +79,17 @@ namespace SimpleBCI.API.Processing
         /// </exception>
         public BlinkState GetCurrentBlinkState()
         {
-            int preset = (int)BrainFlowPresets.DEFAULT_PRESET;
-            double[,] data = board.get_current_board_data(MotorImageryFeatureExtractor.windowSize, preset);
+            int windowSampleCount = (int)Math.Ceiling(samplingRate * AnalysisWindowSeconds);
+            double[,] data;
+            try
+            {
+                data = board.get_current_board_data(windowSampleCount, boardInformation.Preset);
+            }
+            catch (BrainFlowError)
+            {
+                throw new SimpleBCIException(
+                    "Could not read EEG data. Make sure the board has started successfully.");
+            }
             int sampleCount = data.GetLength(1);
 
             if (sampleCount == 0)
@@ -80,9 +97,7 @@ namespace SimpleBCI.API.Processing
                 return BlinkState.NotBlinked;
             }
 
-            int af7Row = eegChannels[1];
-            int af8Row = eegChannels[2];
-            int requiredRow = Math.Max(timestampChannel, Math.Max(af7Row, af8Row));
+            int requiredRow = Math.Max(timestampChannel, Math.Max(af7Channel, af8Channel));
             if (data.GetLength(0) <= requiredRow)
             {
                 throw new InvalidOperationException("EEG channels or timestamp channel are not in the data array.");
@@ -94,8 +109,8 @@ namespace SimpleBCI.API.Processing
 
             for (int i = 0; i < sampleCount; i++)
             {
-                af7[i] = data[af7Row, i];
-                af8[i] = data[af8Row, i];
+                af7[i] = data[af7Channel, i];
+                af8[i] = data[af8Channel, i];
                 timestamps[i] = data[timestampChannel, i];
             }
 
@@ -114,6 +129,7 @@ namespace SimpleBCI.API.Processing
                 }
 
                 detectedBlink = true;
+
                 if (previousBlinkTimestamp.HasValue)
                 {
                     double interval = blinkTimestamp - previousBlinkTimestamp.Value;
@@ -156,7 +172,7 @@ namespace SimpleBCI.API.Processing
         {
             double[] correctedAf7 = RemoveMovingBaseline(af7);
             double[] correctedAf8 = RemoveMovingBaseline(af8);
-            List<int> channelPeaks = new();
+            List<int> channelPeaks = new List<int>();
 
             FindNegativePeaks(correctedAf7, channelPeaks);
             FindNegativePeaks(correctedAf8, channelPeaks);
@@ -277,3 +293,4 @@ namespace SimpleBCI.API.Processing
         }
     }
 }
+
