@@ -2,15 +2,16 @@ namespace SimpleBCI
 {
     public sealed class SimpleBCIParameters
     {
-        private readonly string[]? channelLayout;
+        private readonly ChannelInput[]? channelLayout;
 
         public string? SerialPort { get; }
         public string? SerialNumber { get; }
         public string? AdditionalParams { get; }
-        public string[]? ChannelLayout =>
-            channelLayout is null ? null : (string[])channelLayout.Clone();
+        public IBoardConfiguration? BoardConfiguration { get; }
+        public ChannelInput[]? ChannelLayout =>
+            channelLayout is null ? null : (ChannelInput[])channelLayout.Clone();
 
-        public SimpleBCIParameters() : this(null) { }
+        public SimpleBCIParameters() : this((string?)null) { }
 
         public SimpleBCIParameters(string? serialPort)
             : this(serialPort, null) { }
@@ -22,20 +23,31 @@ namespace SimpleBCI
             string? serialPort,
             string? serialNumber,
             string? additionalParams)
-            : this(serialPort, serialNumber, additionalParams, null) { }
+            : this(serialPort, serialNumber, additionalParams, (ChannelInput[]?)null) { }
 
         public SimpleBCIParameters(
             string? serialPort,
             string? serialNumber,
             string? additionalParams,
-            string[]? channelLayout)
+            ChannelInput[]? channelLayout)
+            : this(serialPort, serialNumber, additionalParams, channelLayout, null)
+        {
+        }
+
+        public SimpleBCIParameters(
+            string? serialPort,
+            string? serialNumber,
+            string? additionalParams,
+            ChannelInput[]? channelLayout,
+            IBoardConfiguration? boardConfiguration)
         {
             SerialPort = serialPort;
             SerialNumber = serialNumber;
             AdditionalParams = additionalParams;
+            BoardConfiguration = boardConfiguration;
             this.channelLayout = channelLayout is null
                 ? null
-                : (string[])channelLayout.Clone();
+                : (ChannelInput[])channelLayout.Clone();
         }
     }
 }

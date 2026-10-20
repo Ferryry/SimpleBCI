@@ -3,9 +3,9 @@ using SimpleBCI.API.States;
 
 namespace SimpleBCI.TestApplication.SimpleTests
 {
-    internal class SimpleFaaTestApplication : ISimpleTestApplication
+    internal class SimpleBlinkTestApplicationMuse : ISimpleTestApplication
     {
-        public static string name = "FAA Test (Muse S Athena)";
+        public static string name = "Blink Test (Muse S Athena)";
         private readonly SimpleBCI instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;
@@ -15,6 +15,20 @@ namespace SimpleBCI.TestApplication.SimpleTests
             HalfSecond = 0,
             OneSecond = 1,
             TwoSeconds = 2,
+        }
+
+        /// <summary>
+        /// Formats the current Brainstate info and prints it.
+        /// </summary>
+        /// <param name="state">Current brainstate obtained by the SimpleBCI API.</param>
+        private void PrintCurrentState(BlinkState state)
+        {
+            Console.WriteLine(String.Format(
+                "{0}[{1}] Blink Prediction: {2}\n",
+                "############ Prediction Update ############\n",
+                DateTime.UtcNow,
+                state.ToString()
+            ));
         }
 
         /// <summary>
@@ -62,20 +76,6 @@ namespace SimpleBCI.TestApplication.SimpleTests
         }
 
         /// <summary>
-        /// Formats the current Brainstate info and prints it.
-        /// </summary>
-        /// <param name="state">Current brainstate obtained by the SimpleBCI API.</param>
-        private void PrintCurrentState(FaaState state)
-        {
-            Console.WriteLine(String.Format(
-                "{0}[{1}] FAA State: {2}\n",
-                "############ Emotion State Update ############\n",
-                DateTime.UtcNow,
-                state
-            ));
-        }
-
-        /// <summary>
         /// Runs test application.
         /// </summary>
         public void Run()
@@ -91,10 +91,9 @@ namespace SimpleBCI.TestApplication.SimpleTests
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
-                    PrintCurrentState(instance.GetFaaState());
+                    PrintCurrentState(instance.GetCurrentBlinkState());
 
-                    switch (displayDelay)
-                    {
+                    switch (displayDelay) {
                         case DisplayDelay.HalfSecond:
                             Task.Delay(
                                 TimeSpan.FromMilliseconds(500),
@@ -129,10 +128,10 @@ namespace SimpleBCI.TestApplication.SimpleTests
             instance.StopAPI();
         }
 
-        public SimpleFaaTestApplication()
+        public SimpleBlinkTestApplicationMuse()
         {
             instance = new SimpleBCI(
-                new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
+                new SimpleBCIBoardSelection(BoardType.MuseSAthenaBoard),
                 new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
 
             cancellationTokenSource = new CancellationTokenSource();

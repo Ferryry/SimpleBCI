@@ -26,8 +26,8 @@ namespace SimpleBCI.API.Processing
             this.boardInformation = boardInformation;
             samplingRate = boardInformation.SamplingRate;
 
-            if (!boardInformation.Channels.TryGetValue("AF7", out af7Channel) ||
-                !boardInformation.Channels.TryGetValue("AF8", out af8Channel))
+            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
+                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
             {
                 throw new NotSupportedException(
                     "Feature calculation requires EEG channels named AF7 and AF8.");

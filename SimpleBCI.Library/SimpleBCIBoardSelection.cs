@@ -72,5 +72,5 @@ namespace SimpleBCI.API
         MuseSAthenaBoard = 67
     }
 
-    public sealed record SimpleBoardSelection(BoardType Board);
+    public sealed record SimpleBCIBoardSelection(BoardType Board);
 }

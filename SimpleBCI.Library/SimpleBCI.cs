@@ -12,7 +12,10 @@ namespace SimpleBCI
     public sealed class SimpleBCI
     {
         private readonly BoardShim board;
-        private readonly MotorImageryClassifier? motorImageryClassifier;
+        private readonly BoardType boardType;
+        private readonly IBoardConfiguration? boardConfiguration;
+        // Temporarily disabled while the classifier's sampling-rate handling is revised.
+        // private readonly MotorImageryClassifier? motorImageryClassifier;
         private readonly BlinkDetector? blinkDetector;
         private readonly FaaStateCalculator? emotionDetector;
         // private readonly FeatureCalculator? featureCalculator;
@@ -26,7 +29,7 @@ namespace SimpleBCI
         /// Optional: Electrode names in order of EEG data inputs,
         /// i.e. ["TP9", "AF7", "AF8", "TP10"].
         /// </param>
-        public SimpleBCI(SimpleBoardSelection selection, SimpleBCIParameters? parameters = null)
+        public SimpleBCI(SimpleBCIBoardSelection selection, SimpleBCIParameters? parameters = null)
         {
             ArgumentNullException.ThrowIfNull(selection);
 
@@ -35,15 +38,25 @@ namespace SimpleBCI
                 parameters = new SimpleBCIParameters();
             }
 
+            boardType = selection.Board;
+            boardConfiguration = parameters.BoardConfiguration;
+            if (boardConfiguration is not null && boardConfiguration.BoardType != boardType)
+            {
+                throw new ArgumentException(
+                    $"The supplied board configuration targets {boardConfiguration.BoardType}, " +
+                    $"but the selected board is {boardType}.",
+                    nameof(parameters));
+            }
+
             board = CreateBoard(selection, parameters);
             boardInfo = CreateBoardInformation(board, parameters);
 
             blinkDetector = TryCreateFeature(() => new BlinkDetector(board, boardInfo));
             emotionDetector = TryCreateFeature(() => new FaaStateCalculator(board, boardInfo));
-            motorImageryClassifier = TryCreateFeature(() => new MotorImageryClassifier(board));
+            // motorImageryClassifier = TryCreateFeature(() => new MotorImageryClassifier(board));
         }
 
-        private BoardShim CreateBoard(SimpleBoardSelection selection, SimpleBCIParameters parameters)
+        private BoardShim CreateBoard(SimpleBCIBoardSelection selection, SimpleBCIParameters parameters)
         {
             BrainFlowInputParams inputParams = new BrainFlowInputParams();
 
@@ -124,7 +137,8 @@ namespace SimpleBCI
         {
             if (blinkDetector == null)
             {
-                throw FeatureNotSupported("Blink detection");
+                throw FeatureNotSupported(
+                    "Blink detection (requires AF7 and AF8 to be mapped to EEG inputs)");
             }
 
             return blinkDetector.GetCurrentBlinkState();
@@ -137,12 +151,7 @@ namespace SimpleBCI
         /// <returns>Brainstate.</returns>
         public MotorImageryState GetMotorImageryState()
         {
-            if (motorImageryClassifier == null)
-            {
-                throw FeatureNotSupported("Motor imagery classification");
-            }
-
-            return motorImageryClassifier.GetMotorImageryState();
+            throw FeatureNotSupported("Motor imagery classification (temporarily disabled)");
         }
 
         /*public double[] GetFocusIndex()
@@ -169,15 +178,15 @@ namespace SimpleBCI
             {
                 board.prepare_session();
                 board.start_stream();
+                boardConfiguration?.Apply(new BrainFlowBoardConfigurationContext(board));
                 emotionDetector?.StartWorker();
+                return true;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                return false;
+                ReleaseBoardAfterFailedStart();
+                throw WrapBoardException("Could not start the selected EEG board.", e);
             }
-
-            return true;
         }
 
         /// <summary>
@@ -185,12 +194,73 @@ namespace SimpleBCI
         /// </summary>
         public void StopAPI()
         {
-            emotionDetector?.StopWorker().GetAwaiter().GetResult();
-
-            if (IsAPIRunning())
+            try
             {
-                board.stop_stream();
-                board.release_session();
+                emotionDetector?.StopWorker().GetAwaiter().GetResult();
+
+                if (IsAPIRunning())
+                {
+                    board.stop_stream();
+                    board.release_session();
+                }
+            }
+            catch (Exception e)
+            {
+                throw WrapBoardException("Could not stop the selected EEG board.", e);
+            }
+        }
+
+        private static SimpleBCIException WrapBoardException(string message, Exception exception)
+        {
+            string detail = exception.Message;
+            if (exception is BrainFlowError)
+            {
+                detail = "The EEG board could not be accessed. Check that it is connected, " +
+                         "powered on, and available on the configured port.";
+            }
+
+            return new SimpleBCIException($"{message} {detail}");
+        }
+
+        private void ReleaseBoardAfterFailedStart()
+        {
+            try
+            {
+                if (board.is_prepared())
+                {
+                    board.stop_stream();
+                    board.release_session();
+                }
+            }
+            catch
+            {
+                // Preserve the startup failure as the error reported to the caller.
+            }
+        }
+
+        private sealed class BrainFlowBoardConfigurationContext : IBoardConfigurationContext
+        {
+            private readonly BoardShim board;
+
+            public BrainFlowBoardConfigurationContext(BoardShim board)
+            {
+                this.board = board;
+            }
+
+            public void SendCommand(string command)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(command);
+                board.config_board(command);
+            }
+
+            public void Wait(TimeSpan duration)
+            {
+                if (duration < TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(duration));
+                }
+
+                Thread.Sleep(duration);
             }
         }
     }

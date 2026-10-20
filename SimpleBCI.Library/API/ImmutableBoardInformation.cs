@@ -9,7 +9,7 @@ namespace SimpleBCI.API
     public sealed class ImmutableBoardInformation
     {
         public int SamplingRate { get; }
-        public ReadOnlyDictionary<string, int> Channels { get; }
+        public ReadOnlyDictionary<ElectrodePosition, int> Channels { get; }
         public int Preset { get; }
 
         /// <summary>
@@ -18,9 +18,9 @@ namespace SimpleBCI.API
         /// <param name="boardId">BrainFlow ID of the selected board.</param>
         /// <param name="preset">BrainFlow preset used to query board information.</param>
         /// <param name="parameters">
-        /// SimpleBCI configuration. If it specifies a channel layout, its names are
-        /// mapped to the EEG data rows in their configured order; otherwise, names
-        /// are obtained from BrainFlow.
+        /// SimpleBCI configuration. If it specifies a channel layout, each entry
+        /// maps a board EEG input index to an optional electrode name; otherwise,
+        /// names are obtained from BrainFlow.
         /// </param>
         public ImmutableBoardInformation(
             int boardId,
@@ -33,39 +33,69 @@ namespace SimpleBCI.API
             SamplingRate = BoardShim.get_sampling_rate(boardId, preset);
 
             int[] eegIndices = BoardShim.get_eeg_channels(boardId, preset);
-            string[] eegNames =
-                parameters.ChannelLayout
-                ?? BoardShim.get_eeg_names(boardId, preset);
-
-            if (eegIndices.Length != eegNames.Length)
+            ChannelInput[]? configuredLayout = parameters.ChannelLayout;
+            if (configuredLayout is null)
             {
-                throw new ArgumentException(
-                    $"The channel layout contains {eegNames.Length} names, " +
-                    $"but the board exposes {eegIndices.Length} EEG inputs.",
-                    nameof(parameters));
+                string[] eegNames = BoardShim.get_eeg_names(boardId, preset);
+                if (eegIndices.Length != eegNames.Length)
+                {
+                    throw new InvalidOperationException(
+                        $"BrainFlow returned {eegNames.Length} EEG names, " +
+                        $"but the board exposes {eegIndices.Length} EEG inputs.");
+                }
+
+                configuredLayout = eegNames
+                    .Select((name, index) => Enum.TryParse(name, true, out ElectrodePosition position)
+                        ? new ChannelInput(index, position)
+                        : new ChannelInput(index, ElectrodePosition.Unspecific))
+                    .ToArray();
             }
 
-            if (eegNames.Any(string.IsNullOrWhiteSpace))
+            var channels = new Dictionary<ElectrodePosition, int>();
+            var configuredIndices = new HashSet<int>();
+            foreach (ChannelInput input in configuredLayout)
             {
-                throw new ArgumentException(
-                    "Channel names must not be null, empty, or whitespace.",
-                    nameof(parameters));
+                if (input is null)
+                {
+                    throw new ArgumentException("Channel input entries must not be null.", nameof(parameters));
+                }
+
+                if (input.BoardIndex < 0 || input.BoardIndex >= eegIndices.Length)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(parameters),
+                        $"Board EEG input index {input.BoardIndex} is outside the valid range 0..{eegIndices.Length - 1}.");
+                }
+
+                if (!configuredIndices.Add(input.BoardIndex))
+                {
+                    throw new ArgumentException(
+                        $"Board EEG input index {input.BoardIndex} is configured more than once.",
+                        nameof(parameters));
+                }
+
+                ElectrodePosition position = input.Position;
+                if (!Enum.IsDefined(position))
+                {
+                    throw new ArgumentException(
+                        $"Electrode position value '{position}' is not defined.",
+                        nameof(parameters));
+                }
+
+                if (position == ElectrodePosition.Unspecific)
+                {
+                    continue;
+                }
+
+                if (!channels.TryAdd(position, eegIndices[input.BoardIndex]))
+                {
+                    throw new ArgumentException(
+                        $"Electrode position '{position}' is configured more than once.",
+                        nameof(parameters));
+                }
             }
 
-            if (eegNames.Distinct(StringComparer.OrdinalIgnoreCase).Count() != eegNames.Length)
-            {
-                throw new ArgumentException(
-                    "Channel names in the layout must be unique.",
-                    nameof(parameters));
-            }
-
-            var channels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < eegIndices.Length; i++)
-            {
-                channels.Add(eegNames[i], eegIndices[i]);
-            }
-
-            Channels = new ReadOnlyDictionary<string, int>(channels);
+            Channels = new ReadOnlyDictionary<ElectrodePosition, int>(channels);
         }
     }
 }

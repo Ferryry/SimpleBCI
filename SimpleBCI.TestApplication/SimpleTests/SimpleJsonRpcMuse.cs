@@ -9,7 +9,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
     /// <summary>
     /// Simple JSON-RPC implementation to use this Api.
     /// </summary>
-    internal class SimpleJsonRpc : ISimpleTestApplication
+    internal class SimpleJsonRpcMuse : ISimpleTestApplication
     {
         public static string name = "JsonRPC Test (Muse S Athena)";
         private readonly SimpleBCI instance;
@@ -17,10 +17,10 @@ namespace SimpleBCI.TestApplication.SimpleTests
         private TcpListener listener;
         private CancellationTokenSource cancellationTokenSource;
 
-        public SimpleJsonRpc()
+        public SimpleJsonRpcMuse()
         {
             instance = new SimpleBCI(
-                new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
+                new SimpleBCIBoardSelection(BoardType.MuseSAthenaBoard),
                 new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
 
             cancellationTokenSource = new CancellationTokenSource();

@@ -1,11 +1,12 @@
 ﻿using SimpleBCI.API;
 using SimpleBCI.API.States;
+using System.Runtime.Serialization;
 
 namespace SimpleBCI.TestApplication.SimpleTests
 {
-    internal class SimpleBlinkTestApplication : ISimpleTestApplication
+    internal class SimpleBlinkTestApplicationNeuroPawn : ISimpleTestApplication
     {
-        public static string name = "Blink Test (Muse S Athena)";
+        public static string name = "Blink Test (NeuroPawn | {F7, F8})";
         private readonly SimpleBCI instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;
@@ -82,7 +83,10 @@ namespace SimpleBCI.TestApplication.SimpleTests
         {
             try
             {
-                instance.StartAPI();
+                if (!instance.StartAPI())
+                {
+                    return;
+                }
 
                 Thread.Sleep(1000);
 
@@ -119,20 +123,39 @@ namespace SimpleBCI.TestApplication.SimpleTests
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    String.Format("An exception occurred!\n\n{0}",
-                    ex.ToString())
-                );
+                Console.WriteLine($"An exception occurred: {ex.Message}");
             }
 
             instance.StopAPI();
         }
 
-        public SimpleBlinkTestApplication()
+        public SimpleBlinkTestApplicationNeuroPawn()
         {
+            string serial = "COM4";
+            ChannelInput[] channels =
+            {
+                new(0, ElectrodePosition.Unspecific),
+                new(1, ElectrodePosition.Unspecific),
+                new(2, ElectrodePosition.Unspecific),
+                new(3, ElectrodePosition.Unspecific),
+                new(4, ElectrodePosition.Unspecific),
+                new(5, ElectrodePosition.Unspecific),
+                new(6, ElectrodePosition.Af7), // NeuroPawn input 7
+                new(7, ElectrodePosition.Af8), // NeuroPawn input 8
+            };
+            
             instance = new SimpleBCI(
-                new SimpleBoardSelection(BoardType.MuseSAthenaBoard),
-                new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
+                new SimpleBCIBoardSelection(BoardType.NeuropawnKnightBoard),
+                new SimpleBCIParameters(
+                    serial,
+                    null,
+                    null,
+                    channels,
+                    new NeuroPawnKnightConfiguration(
+                    [
+                        new(7, Gain: 12),
+                        new(8, Gain: 12),
+                    ])));
 
             cancellationTokenSource = new CancellationTokenSource();
         }

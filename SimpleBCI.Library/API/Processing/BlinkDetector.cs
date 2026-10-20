@@ -58,8 +58,8 @@ namespace SimpleBCI.API.Processing
                 board.get_board_id(),
                 boardInformation.Preset);
 
-            if (!boardInformation.Channels.TryGetValue("AF7", out af7Channel) ||
-                !boardInformation.Channels.TryGetValue("AF8", out af8Channel))
+            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
+                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
             {
                 throw new NotSupportedException(
                     "Blink detection requires EEG channels named AF7 and AF8.");
@@ -80,9 +80,16 @@ namespace SimpleBCI.API.Processing
         public BlinkState GetCurrentBlinkState()
         {
             int windowSampleCount = (int)Math.Ceiling(samplingRate * AnalysisWindowSeconds);
-            double[,] data = board.get_current_board_data(
-                windowSampleCount,
-                boardInformation.Preset);
+            double[,] data;
+            try
+            {
+                data = board.get_current_board_data(windowSampleCount, boardInformation.Preset);
+            }
+            catch (BrainFlowError)
+            {
+                throw new SimpleBCIException(
+                    "Could not read EEG data. Make sure the board has started successfully.");
+            }
             int sampleCount = data.GetLength(1);
 
             if (sampleCount == 0)
@@ -122,6 +129,7 @@ namespace SimpleBCI.API.Processing
                 }
 
                 detectedBlink = true;
+
                 if (previousBlinkTimestamp.HasValue)
                 {
                     double interval = blinkTimestamp - previousBlinkTimestamp.Value;
@@ -164,7 +172,7 @@ namespace SimpleBCI.API.Processing
         {
             double[] correctedAf7 = RemoveMovingBaseline(af7);
             double[] correctedAf8 = RemoveMovingBaseline(af8);
-            List<int> channelPeaks = new();
+            List<int> channelPeaks = new List<int>();
 
             FindNegativePeaks(correctedAf7, channelPeaks);
             FindNegativePeaks(correctedAf8, channelPeaks);
