@@ -12,14 +12,14 @@ namespace SimpleBCI.TestApplication.SimpleTests
     internal class SimpleJsonRpcMuse : ISimpleTestApplication
     {
         public static string name = "JsonRPC Test (Muse S Athena)";
-        private readonly SimpleBCI instance;
+        private readonly BciClient instance;
         private readonly int port = 5080;
         private TcpListener listener;
         private CancellationTokenSource cancellationTokenSource;
 
         public SimpleJsonRpcMuse()
         {
-            instance = new SimpleBCI(
+            instance = new BciClient(
                 new SimpleBCIBoardSelection(BoardType.MuseSAthenaBoard),
                 new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
 
@@ -32,7 +32,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
         {
             try
             {
-                instance.StartAPI();
+                instance.Start();
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
@@ -74,9 +74,9 @@ namespace SimpleBCI.TestApplication.SimpleTests
         /// </summary>
         private class ApiHandler
         {
-            private readonly SimpleBCI instance;
+            private readonly BciClient instance;
 
-            public ApiHandler(SimpleBCI instance)
+            public ApiHandler(BciClient instance)
             {
                 this.instance = instance;
             }

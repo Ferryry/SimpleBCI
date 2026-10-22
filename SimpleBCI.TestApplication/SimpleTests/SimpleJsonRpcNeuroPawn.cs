@@ -12,7 +12,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
     internal class SimpleJsonRpcNeuroPawn : ISimpleTestApplication
     {
         public static string name = "JsonRPC Test (NeuroPawn)";
-        private readonly SimpleBCI instance;
+        private readonly BciClient instance;
         private readonly int port = 5080;
         private TcpListener listener;
         private CancellationTokenSource cancellationTokenSource;
@@ -32,7 +32,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 new(7, ElectrodePosition.Unspecific),
             };
 
-            instance = new SimpleBCI(
+            instance = new BciClient(
                 new SimpleBCIBoardSelection(BoardType.NeuropawnKnightBoard),
                 new SimpleBCIParameters(
                     serial,
@@ -54,7 +54,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
         {
             try
             {
-                instance.StartAPI();
+                instance.Start();
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
@@ -96,9 +96,9 @@ namespace SimpleBCI.TestApplication.SimpleTests
         /// </summary>
         private class ApiHandler
         {
-            private readonly SimpleBCI instance;
+            private readonly BciClient instance;
 
-            public ApiHandler(SimpleBCI instance)
+            public ApiHandler(BciClient instance)
             {
                 this.instance = instance;
             }

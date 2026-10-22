@@ -9,7 +9,7 @@ namespace SimpleBCI
     /// Provides access to supported BCI features such as blink detection,
     /// FAA calculation, and motor imagery classification.
     /// </summary>
-    public sealed class SimpleBCI
+    public sealed class BciClient : IDisposable
     {
         private readonly BoardShim board;
         private readonly BoardType boardType;
@@ -29,7 +29,7 @@ namespace SimpleBCI
         /// Optional: Electrode names in order of EEG data inputs,
         /// i.e. ["TP9", "AF7", "AF8", "TP10"].
         /// </param>
-        public SimpleBCI(SimpleBCIBoardSelection selection, SimpleBCIParameters? parameters = null)
+        public BciClient(SimpleBCIBoardSelection selection, SimpleBCIParameters? parameters = null)
         {
             ArgumentNullException.ThrowIfNull(selection);
 
@@ -130,7 +130,7 @@ namespace SimpleBCI
 
         /// <summary>
         /// Returns the current blinkstate.
-        /// <see cref="StartAPI"/> must be called before calling this method.
+        /// <see cref="Start"/> must be called before calling this method.
         /// </summary>
         /// <returns>Blinkstate.</returns>
         public BlinkState GetCurrentBlinkState()
@@ -146,7 +146,7 @@ namespace SimpleBCI
 
         /// <summary>
         /// Returns the current brainstate classified and predicted by the local ML.
-        /// <see cref="StartAPI"/> must be called before calling this method.
+        /// <see cref="Start"/> must be called before calling this method.
         /// </summary>
         /// <returns>Brainstate.</returns>
         public MotorImageryState GetMotorImageryState()
@@ -154,25 +154,10 @@ namespace SimpleBCI
             throw FeatureNotSupported("Motor imagery classification (temporarily disabled)");
         }
 
-        /*public double[] GetFocusIndex()
-        {
-            return (featureCalculator ?? throw FeatureNotSupported("Focus index calculation")).GetFocusIndex();
-        }
-
-        public double[] GetRelaxationIndex()
-        {
-            return (featureCalculator ?? throw FeatureNotSupported("Relaxation index calculation")).GetRelaxationIndex();
-        }
-
-        public double[] GetArousalIndex()
-        {
-            return (featureCalculator ?? throw FeatureNotSupported("Arousal index calculation")).GetArousalIndex();
-        }*/
-
         /// <summary>
         /// Starts the API.
         /// </summary>
-        public bool StartAPI()
+        public bool Start()
         {
             try
             {
@@ -192,7 +177,7 @@ namespace SimpleBCI
         /// <summary>
         /// Stops the API.
         /// </summary>
-        public void StopAPI()
+        public void Stop()
         {
             try
             {
@@ -221,7 +206,7 @@ namespace SimpleBCI
 
             return new SimpleBCIException($"{message} {detail}");
         }
-
+        
         private void ReleaseBoardAfterFailedStart()
         {
             try
@@ -236,6 +221,11 @@ namespace SimpleBCI
             {
                 // Preserve the startup failure as the error reported to the caller.
             }
+        }
+
+        public void Dispose()
+        {
+            Stop();
         }
 
         private sealed class BrainFlowBoardConfigurationContext : IBoardConfigurationContext
@@ -265,4 +255,3 @@ namespace SimpleBCI
         }
     }
 }
-

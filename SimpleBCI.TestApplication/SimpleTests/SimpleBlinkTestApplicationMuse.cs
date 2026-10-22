@@ -6,7 +6,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
     internal class SimpleBlinkTestApplicationMuse : ISimpleTestApplication
     {
         public static string name = "Blink Test (Muse S Athena)";
-        private readonly SimpleBCI instance;
+        private readonly BciClient instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;
 
@@ -82,7 +82,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
         {
             try
             {
-                instance.StartAPI();
+                instance.Start();
 
                 Thread.Sleep(1000);
 
@@ -125,12 +125,12 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 );
             }
 
-            instance.StopAPI();
+            instance.Stop();
         }
 
         public SimpleBlinkTestApplicationMuse()
         {
-            instance = new SimpleBCI(
+            instance = new BciClient(
                 new SimpleBCIBoardSelection(BoardType.MuseSAthenaBoard),
                 new SimpleBCIParameters(null, null, "preset=p1041;low_latency=true"));
 

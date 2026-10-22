@@ -7,7 +7,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
     internal class SimpleBlinkTestApplicationNeuroPawn : ISimpleTestApplication
     {
         public static string name = "Blink Test (NeuroPawn | {F7, F8})";
-        private readonly SimpleBCI instance;
+        private readonly BciClient instance;
         private CancellationTokenSource cancellationTokenSource;
         private DisplayDelay displayDelay;
 
@@ -83,7 +83,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
         {
             try
             {
-                if (!instance.StartAPI())
+                if (!instance.Start())
                 {
                     return;
                 }
@@ -126,7 +126,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 Console.WriteLine($"An exception occurred: {ex.Message}");
             }
 
-            instance.StopAPI();
+            instance.Stop();
         }
 
         public SimpleBlinkTestApplicationNeuroPawn()
@@ -144,7 +144,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 new(7, ElectrodePosition.Af8), // NeuroPawn input 8
             };
             
-            instance = new SimpleBCI(
+            instance = new BciClient(
                 new SimpleBCIBoardSelection(BoardType.NeuropawnKnightBoard),
                 new SimpleBCIParameters(
                     serial,
