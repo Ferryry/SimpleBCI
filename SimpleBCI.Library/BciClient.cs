@@ -18,6 +18,7 @@ namespace SimpleBCI
         private readonly BlinkDetector? blinkDetector;
         private readonly FaaStateCalculator? emotionDetector;
         private readonly ImmutableBoardInformation boardInfo;
+        private static bool autoStartApi = true;
 
         /// <summary>
         /// Creates a SimpleBCI instance for the selected board.
@@ -52,6 +53,11 @@ namespace SimpleBCI
             blinkDetector = TryCreateFeature(() => new BlinkDetector(board, boardInfo));
             emotionDetector = TryCreateFeature(() => new FaaStateCalculator(board, boardInfo));
             motorImageryClassifier = TryCreateFeature(() => new NeuroPawnMotorImageryClassifier(board, boardInfo));
+
+            if (autoStartApi)
+            {
+                Start();
+            }
         }
 
         private BoardShim CreateBoard(SimpleBCIBoardSelection selection, SimpleBCIParameters parameters)
@@ -103,11 +109,21 @@ namespace SimpleBCI
         private static NotSupportedException FeatureNotSupported(string feature) =>
             new NotSupportedException($"{feature} is not supported by the selected board.");
 
+        public static void SetAutoStartApi(bool autoStart)
+        {
+            autoStartApi = autoStart;
+        }
+
+        public static bool AutoStartApiEnabled()
+        {
+            return autoStartApi;
+        }
+
         /// <summary>
         /// Checks current API status.
         /// </summary>
         /// <returns>Status</returns>
-        public bool IsAPIRunning()
+        public bool IsApiRunning()
         {
             return board.is_prepared();
         }
@@ -206,7 +222,7 @@ namespace SimpleBCI
                 emotionDetector?.StopWorker().GetAwaiter().GetResult();
                 motorImageryClassifier?.Dispose();
 
-                if (IsAPIRunning())
+                if (IsApiRunning())
                 {
                     board.stop_stream();
                     board.release_session();
