@@ -14,11 +14,9 @@ namespace SimpleBCI
         private readonly BoardShim board;
         private readonly BoardType boardType;
         private readonly IBoardConfiguration? boardConfiguration;
-        // Temporarily disabled while the classifier's sampling-rate handling is revised.
-        // private readonly MotorImageryClassifier? motorImageryClassifier;
+        private readonly NeuroPawnMotorImageryClassifier? motorImageryClassifier;
         private readonly BlinkDetector? blinkDetector;
         private readonly FaaStateCalculator? emotionDetector;
-        // private readonly FeatureCalculator? featureCalculator;
         private readonly ImmutableBoardInformation boardInfo;
 
         /// <summary>
@@ -53,7 +51,7 @@ namespace SimpleBCI
 
             blinkDetector = TryCreateFeature(() => new BlinkDetector(board, boardInfo));
             emotionDetector = TryCreateFeature(() => new FaaStateCalculator(board, boardInfo));
-            // motorImageryClassifier = TryCreateFeature(() => new MotorImageryClassifier(board));
+            motorImageryClassifier = TryCreateFeature(() => new NeuroPawnMotorImageryClassifier(board, boardInfo));
         }
 
         private BoardShim CreateBoard(SimpleBCIBoardSelection selection, SimpleBCIParameters parameters)
@@ -145,14 +143,38 @@ namespace SimpleBCI
         }
 
         /// <summary>
-        /// Returns the current brainstate classified and predicted by the local ML.
+        /// Returns the motor imahgery state.
         /// <see cref="Start"/> must be called before calling this method.
         /// </summary>
-        /// <returns>Brainstate.</returns>
+        /// <returns>MotorImageryState</returns>
         public MotorImageryState GetMotorImageryState()
         {
-            throw FeatureNotSupported("Motor imagery classification (temporarily disabled)");
+            return RequireMotorImagery().GetMotorImageryState();
         }
+
+        /// <summary>
+        /// Records one calibration trial. Call it 4 s after a calibration cue.
+        /// </summary>
+        public void AddMotorImageryCalibrationTrial()
+        {
+            RequireMotorImagery().AddCalibrationTrial();
+        }
+
+        /// <summary>
+        /// Finishes the calibration. Call it once, after 10-20 calibration trials.
+        /// </summary>
+        public void FinishMotorImageryCalibration()
+        {
+            RequireMotorImagery().FinishCalibration();
+        }
+
+        /// <summary>Whether motor imagery calibration has been completed for this API session.</summary>
+        public bool IsMotorImageryCalibrated => RequireMotorImagery().IsCalibrated;
+
+        private NeuroPawnMotorImageryClassifier RequireMotorImagery() =>
+            motorImageryClassifier ?? throw FeatureNotSupported(
+                "Motor imagery classification (requires a 125 Hz board with FC3, FC4, C5, C3, C4, C6, CP3 and CP4 mapped)");
+
 
         /// <summary>
         /// Starts the API.
@@ -182,6 +204,7 @@ namespace SimpleBCI
             try
             {
                 emotionDetector?.StopWorker().GetAwaiter().GetResult();
+                motorImageryClassifier?.Dispose();
 
                 if (IsAPIRunning())
                 {

@@ -37,7 +37,7 @@ namespace SimpleBCI.API.Processing
         private (double[] Af7, double[] Af8) GetAfSignals()
         {
             double[,] data = board.get_current_board_data(
-                MotorImageryFeatureExtractor.WindowSize,
+                512,
                 boardInformation.Preset);
             int sampleCount = data.GetLength(1);
 

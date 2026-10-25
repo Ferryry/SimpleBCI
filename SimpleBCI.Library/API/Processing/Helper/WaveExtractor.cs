@@ -70,10 +70,10 @@ namespace SimpleBCI.API.Processing.Helper
                     "Sampling rate must support the requested frequency band.");
             }
 
-            double[] filtered = (double[])raw.Clone();
+            double[] rawCloned = (double[])raw.Clone();
 
-            DataFilter.perform_bandpass(
-                filtered,
+            double[] filtered = DataFilter.perform_bandpass(
+                rawCloned,
                 samplingRate,
                 (float)((lowFrequency + highFrequency) / 2.0),
                 (float)((highFrequency - lowFrequency) / 2.0),

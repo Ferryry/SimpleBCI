@@ -13,11 +13,16 @@
 
   <ItemGroup>
     <PackageReference Include="brainflow" Version="5.22.2" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
 
     <None Update="Model\Model.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Update="Model\MotorImagery.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
