@@ -2,6 +2,7 @@ using brainflow;
 using SimpleBCI.API;
 using SimpleBCI.API.Processing;
 using SimpleBCI.API.States;
+using SimpleBCI.Library.API.Events;
 
 namespace SimpleBCI
 {
@@ -11,6 +12,8 @@ namespace SimpleBCI
     /// </summary>
     public sealed class BciClient : IDisposable
     {
+        public event EventHandler<BoardConnectedEventArgs>? BoardConnected;
+        public event EventHandler<ApiReadyEventArgs>? ApiReady;
         private readonly BoardShim board;
         private readonly BoardType boardType;
         private readonly IBoardConfiguration? boardConfiguration;
@@ -19,6 +22,16 @@ namespace SimpleBCI
         private readonly FaaStateCalculator? emotionDetector;
         private readonly ImmutableBoardInformation boardInfo;
         private static bool autoStartApi = true;
+
+        protected void OnBoardConnected(BoardConnectedEventArgs e)
+        {
+            BoardConnected?.Invoke(this, e);
+        }
+
+        protected void OnApiReady(ApiReadyEventArgs e)
+        {
+            ApiReady?.Invoke(this, e);
+        }
 
         /// <summary>
         /// Creates a SimpleBCI instance for the selected board.
@@ -187,10 +200,10 @@ namespace SimpleBCI
         /// <summary>Whether motor imagery calibration has been completed for this API session.</summary>
         public bool IsMotorImageryCalibrated => RequireMotorImagery().IsCalibrated;
 
-        private NeuroPawnMotorImageryClassifier RequireMotorImagery() =>
-            motorImageryClassifier ?? throw FeatureNotSupported(
+        private NeuroPawnMotorImageryClassifier RequireMotorImagery() {
+            return motorImageryClassifier ?? throw FeatureNotSupported(
                 "Motor imagery classification (requires a 125 Hz board with FC3, FC4, C5, C3, C4, C6, CP3 and CP4 mapped)");
-
+        }
 
         /// <summary>
         /// Starts the API.
@@ -202,7 +215,10 @@ namespace SimpleBCI
                 board.prepare_session();
                 board.start_stream();
                 boardConfiguration?.Apply(new BrainFlowBoardConfigurationContext(board));
+                
                 emotionDetector?.StartWorker();
+                OnApiReady(new ApiReadyEventArgs());
+
                 return true;
             }
             catch (Exception e)
