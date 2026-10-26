@@ -1,84 +1,79 @@
 # SimpleBCI
 
-SimpleBCI is an early-stage C# prototype built with BrainFlow. It explores
-a simple, command-oriented API for consumer EEG applications, using the
-Muse S Athena as data sources.
+SimpleBCI is an early-stage C# prototype that explores a simple, device-agnostic API for consumer brain-computer interfaces (BCIs).
 
-The project is part of a project work in Computer Science at Örebro University.
-It explores privacy and security in brain-computer interfaces. EEG can contain
-sensitive information, while applications may only need a small set of
-task-specific results. SimpleBCI processes EEG locally and exposes derived
-states through a library API.
+The project is part of a Computer Science project at Örebro University and focuses on privacy and security in BCIs. Instead of exposing raw brain signals to applications, SimpleBCI aims to provide access to task-specific results through a simple, command-oriented API while keeping signal processing local.
 
 ## Architecture
 
-The diagrams below show the system context and the local EEG processing flow.
-BrainFlow is integrated into the SimpleBCI API and handles communication with
-the selected board and access to its EEG data.
+SimpleBCI acts as an intermediary between a BCI device and third-party applications. It processes brain signals locally and exposes derived states through a public API.
 
-### System context
+### System Context
+
+The system context shows how SimpleBCI connects a BCI device to third-party applications while keeping processing within the API boundary.
+
 ```mermaid
 C4Context
     UpdateLayoutConfig($c4ShapeInRow="1", $c4BoundaryInRow="1")
 
-    System_Ext(eeg, "Muse S Athena", "Acquires EEG signals.")
+    System_Ext(eeg, "BCI Device", "Acquires EEG signals.")
 
     System_Boundary(system, "SimpleBCI") {
-        System(api, "SimpleBCI API", "Processes EEG signals using BrainFlow and exposes derived states.")
+        System(api, "SimpleBCI API", "Processes brain signals locally and exposes derived states.")
     }
 
-    System_Ext(app, "Third-party application", "Consumes derived EEG states.")
+    System_Ext(app, "Third-party Application", "Consumes derived states.")
 
-    Rel_Down(eeg, api, "Provides EEG signals")
-    Rel_Down(api, app, "Exposes derived EEG states")
+    Rel_Down(eeg, api, "Provides brain signals")
+    Rel_Down(api, app, "Exposes derived states")
 ```
 
-### EEG processing flow
+### EEG Processing Flow
+
 ```mermaid
 flowchart LR
-    EEG[Brain-Computer Interface] -->|Raw EEG samples| Simple[SimpleBCI API]
+    EEG[BCI Device] -->|Brain signals| API[SimpleBCI API]
 
-    Simple --> BLINK[Blink detection]
-    Simple --> FAA[Frontal alpha asymmetry]
-    Simple --> MI[Motor imagery classification]
+    API --> BLINK[Blink Detection]
+    API --> FAA[Frontal Alpha Asymmetry]
+    API --> MI[Motor Imagery]
 
-    BLINK --> RESULT[Derived state]
-    FAA --> RESULT
-    MI --> RESULT
+    BLINK --> STATE[Derived States]
+    FAA --> STATE
+    MI --> STATE
 
-    RESULT --> USER[End User]
+    STATE --> APP[Third-Party Application]
 ```
 
-## Current scope
+## Current Scope
 
-The library currently provides a facade for accessing derived states:
+The prototype provides access to three BCI paradigms:
 
-- Motor imagery classification: left, neutral, or right
-- Frontal alpha asymmetry (FAA) state
-- Blink detection: no blink, single blink, or double blink
+- **Blink Detection:** Detects no blink, a single blink, or a double blink.
+- **Frontal Alpha Asymmetry (FAA):** Provides a state derived from frontal alpha asymmetry.
+- **Motor Imagery:** Classifies left, neutral, or right motor imagery.
 
-The library access board data. Classification and state
-calculation are performed locally in the library. Supported sources include
-the Muse S Athena and BrainFlow's synthetic board.
+The API is designed to abstract device-specific details and provide a consistent interface for applications.
 
-This is a prototype, not a validated medical or research instrument. The
-current implementation does not provide a complete privacy guarantee:
-callers should review what data and capabilities the API exposes before using
-it in an application.
+## Privacy and Security
 
-## Project structure
+EEG signals can contain sensitive personal information beyond what an application requires for its intended task. SimpleBCI explores a privacy-oriented approach in which signal processing takes place locally and applications receive only task-specific results.
 
-- `SimpleBCI.Library`: C# library and public API
-- `SimpleBCI.TestApplication`: example application
-- `SimpleBCI.Tests`: unit tests (rudimentary) 
-- (Dropped) ~~`SimpleBCI.ML`: scripts and data used for the motor imagery model~~
+The prototype does not yet provide a complete or formally validated privacy guarantee. The information exposed by the API and the potential for sensitive information to be inferred from derived states must still be evaluated.
+
+## Project Structure
+
+- `SimpleBCI.Library`: C# library and public API.
+- `SimpleBCI.TestApplication`: Example application.
+- `SimpleBCI.Tests`: Unit tests.
 
 ## Requirements
 
 - .NET 10 SDK
-- Brain-Computer Interface (BCI), such as the Muse S Athena, a synthetic board or other
+- A compatible BCI device or simulated input source
 
 ## Build
 
 ```bash
 dotnet build SimpleBCI.slnx
+```
