@@ -1,6 +1,5 @@
 ﻿using SimpleBCI.API;
 
-
 namespace SimpleBCI.Library.API.Events
 {
     public sealed class ApiReadyEventArgs : EventArgs

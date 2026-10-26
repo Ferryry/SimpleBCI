@@ -21,14 +21,14 @@ namespace SimpleBCI
         private readonly BlinkDetector? blinkDetector;
         private readonly FaaStateCalculator? emotionDetector;
         private readonly ImmutableBoardInformation boardInfo;
-        private static bool autoStartApi = true;
+        private static bool autoStartApi;
 
-        protected void OnBoardConnected(BoardConnectedEventArgs e)
+        private void OnBoardConnected(BoardConnectedEventArgs e)
         {
             BoardConnected?.Invoke(this, e);
         }
 
-        protected void OnApiReady(ApiReadyEventArgs e)
+        private void OnApiReady(ApiReadyEventArgs e)
         {
             ApiReady?.Invoke(this, e);
         }
@@ -215,6 +215,7 @@ namespace SimpleBCI
                 board.prepare_session();
                 board.start_stream();
                 boardConfiguration?.Apply(new BrainFlowBoardConfigurationContext(board));
+                OnBoardConnected(new BoardConnectedEventArgs(boardInfo));
                 
                 emotionDetector?.StartWorker();
                 OnApiReady(new ApiReadyEventArgs());
