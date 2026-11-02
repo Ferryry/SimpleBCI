@@ -17,8 +17,8 @@ namespace SimpleBCI.API.Processing
         private readonly BoardShim board;
         private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int af7Channel;
-        private readonly int af8Channel;
+        private readonly int[] channels;
+        private readonly ElectrodePosition[] selectedPositions;
         private readonly object stateLock = new object();
         private readonly object workerLock = new object();
         private readonly List<double> baselineSamples = new List<double>();
@@ -33,16 +33,46 @@ namespace SimpleBCI.API.Processing
             ArgumentNullException.ThrowIfNull(board);
             ArgumentNullException.ThrowIfNull(boardInformation);
 
-            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
-                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
+            (selectedPositions, channels) = SelectChannels(boardInformation.Channels);
+            if (channels.Length == 0)
             {
                 throw new NotSupportedException(
-                    "Cognitive workload estimation requires EEG channels named AF7 and AF8.");
+                    "Cognitive workload estimation requires Fz or a complete frontal pair (F3/F4, AF7/AF8, F7/F8, FP1/FP2).");
             }
 
             this.board = board;
             this.boardInformation = boardInformation;
             samplingRate = boardInformation.SamplingRate;
+        }
+
+        public IReadOnlyList<ElectrodePosition> SelectedChannels => Array.AsReadOnly(selectedPositions);
+
+        private static (ElectrodePosition[] Positions, int[] Indices) SelectChannels(
+            IReadOnlyDictionary<ElectrodePosition, int> available)
+        {
+            if (available.TryGetValue(ElectrodePosition.Fz, out int fzIndex))
+            {
+                return (new[] { ElectrodePosition.Fz }, new[] { fzIndex });
+            }
+
+            (ElectrodePosition Left, ElectrodePosition Right)[] priorities =
+            {
+                (ElectrodePosition.F3, ElectrodePosition.F4),
+                (ElectrodePosition.Af7, ElectrodePosition.Af8),
+                (ElectrodePosition.F7, ElectrodePosition.F8),
+                (ElectrodePosition.Fp1, ElectrodePosition.Fp2)
+            };
+
+            foreach ((ElectrodePosition left, ElectrodePosition right) in priorities)
+            {
+                if (available.TryGetValue(left, out int leftIndex) &&
+                    available.TryGetValue(right, out int rightIndex))
+                {
+                    return (new[] { left, right }, new[] { leftIndex, rightIndex });
+                }
+            }
+
+            return (Array.Empty<ElectrodePosition>(), Array.Empty<int>());
         }
 
         public bool IsCalibrated
@@ -182,18 +212,10 @@ namespace SimpleBCI.API.Processing
                 throw new InvalidOperationException("Not enough EEG data is available for workload estimation.");
             }
 
-            int requiredRow = Math.Max(af7Channel, af8Channel);
+            int requiredRow = channels.Max();
             if (data.GetLength(0) <= requiredRow)
             {
-                throw new InvalidOperationException("AF7 or AF8 channel is missing from board data.");
-            }
-
-            double[] af7 = new double[sampleCount];
-            double[] af8 = new double[sampleCount];
-            for (int i = 0; i < sampleCount; i++)
-            {
-                af7[i] = data[af7Channel, i];
-                af8[i] = data[af8Channel, i];
+                throw new InvalidOperationException("A selected workload channel is missing from board data.");
             }
 
             int nfft = 1;
@@ -205,18 +227,28 @@ namespace SimpleBCI.API.Processing
             
             int overlap = nfft / 2;
             
-            var psdAf7 = DataFilter.get_psd_welch(af7, nfft, overlap, samplingRate, (int)WindowOperations.HANNING);
-            var psdAf8 = DataFilter.get_psd_welch(af8, nfft, overlap, samplingRate, (int)WindowOperations.HANNING);
-            
-            double thetaAf7 = PowerSpectrumCalculator.CalculateBandPower(psdAf7.ToValueTuple(), 4.0, 8.0);
-            double thetaAf8 = PowerSpectrumCalculator.CalculateBandPower(psdAf8.ToValueTuple(), 4.0, 8.0);
-            
-            if (thetaAf7 <= 0 || thetaAf8 <= 0)
+            double[] logThetaPowers = new double[channels.Length];
+            for (int channelIndex = 0; channelIndex < channels.Length; channelIndex++)
             {
-                throw new InvalidOperationException("Theta power must be positive.");
+                double[] signal = new double[sampleCount];
+                for (int i = 0; i < sampleCount; i++)
+                {
+                    signal[i] = data[channels[channelIndex], i];
+                }
+
+                var psd = DataFilter.get_psd_welch(
+                    signal, nfft, overlap, samplingRate, (int)WindowOperations.HANNING);
+                double thetaPower = PowerSpectrumCalculator.CalculateBandPower(
+                    psd.ToValueTuple(), 4.0, 8.0);
+                if (thetaPower <= 0)
+                {
+                    throw new InvalidOperationException("Theta power must be positive.");
+                }
+
+                logThetaPowers[channelIndex] = Math.Log(thetaPower);
             }
 
-            return (Math.Log(thetaAf7) + Math.Log(thetaAf8)) / 2.0;
+            return logThetaPowers.Average();
         }
     }
 }

@@ -12,14 +12,14 @@ namespace SimpleBCI.API.Processing
         private readonly BoardShim board;
         private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int af7Channel;
-        private readonly int af8Channel;
+        private readonly int[] channels;
+        private readonly ElectrodePosition[] selectedChannels;
         private readonly int timestampChannel;
 
         private double lastProcessedTimestamp = double.NegativeInfinity;
         private double? previousBlinkTimestamp;
         private const double BlinkThreshold = 200.0;
-        private const double MinBlinkInterval = 0.2;
+        private const double MinBlinkInterval = 0.1;
         private const double MaxBlinkDuration = 0.3;
         private const double MinBlinkDuration = 0.05;
         private const double DoubleBlinkWindow = 1.2;
@@ -58,12 +58,37 @@ namespace SimpleBCI.API.Processing
                 board.get_board_id(),
                 boardInformation.Preset);
 
-            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
-                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
+            (selectedChannels, channels) = SelectChannels(boardInformation.Channels);
+            if (channels.Length == 0)
             {
                 throw new NotSupportedException(
-                    "Blink detection requires EEG channels named AF7 and AF8.");
+                    "Blink detection requires one complete frontal channel pair: FP1/FP2, AF7/AF8, or F7/F8.");
             }
+        }
+
+        /// <summary>The frontal electrode pair selected for blink detection.</summary>
+        public IReadOnlyList<ElectrodePosition> SelectedChannels => Array.AsReadOnly(selectedChannels);
+
+        private static (ElectrodePosition[] Positions, int[] Indices) SelectChannels(
+            IReadOnlyDictionary<ElectrodePosition, int> availableChannels)
+        {
+            (ElectrodePosition Left, ElectrodePosition Right)[] priorities =
+            {
+                (ElectrodePosition.Fp1, ElectrodePosition.Fp2),
+                (ElectrodePosition.Af7, ElectrodePosition.Af8),
+                (ElectrodePosition.F7, ElectrodePosition.F8)
+            };
+
+            foreach ((ElectrodePosition left, ElectrodePosition right) in priorities)
+            {
+                if (availableChannels.TryGetValue(left, out int leftIndex) &&
+                    availableChannels.TryGetValue(right, out int rightIndex))
+                {
+                    return (new[] { left, right }, new[] { leftIndex, rightIndex });
+                }
+            }
+
+            return (Array.Empty<ElectrodePosition>(), Array.Empty<int>());
         }
 
         /// <summary>
@@ -97,26 +122,27 @@ namespace SimpleBCI.API.Processing
                 return BlinkState.NotBlinked;
             }
 
-            int requiredRow = Math.Max(timestampChannel, Math.Max(af7Channel, af8Channel));
+            int requiredRow = Math.Max(timestampChannel, channels.Max());
             if (data.GetLength(0) <= requiredRow)
             {
                 throw new InvalidOperationException("EEG channels or timestamp channel are not in the data array.");
             }
 
-            double[] af7 = new double[sampleCount];
-            double[] af8 = new double[sampleCount];
+            double[][] signals = channels.Select(_ => new double[sampleCount]).ToArray();
             double[] timestamps = new double[sampleCount];
 
             for (int i = 0; i < sampleCount; i++)
             {
-                af7[i] = data[af7Channel, i];
-                af8[i] = data[af8Channel, i];
+                for (int channelIndex = 0; channelIndex < channels.Length; channelIndex++)
+                {
+                    signals[channelIndex][i] = data[channels[channelIndex], i];
+                }
                 timestamps[i] = data[timestampChannel, i];
             }
 
             // Process this sliding window only once. Keep a blink timestamp
             // across calls so a double blink can straddle two windows.
-            List<int> peaks = FindBlinkEvents(af7, af8);
+            List<int> peaks = FindBlinkEvents(signals);
             bool detectedBlink = false;
             bool detectedDoubleBlink = false;
 
@@ -159,23 +185,23 @@ namespace SimpleBCI.API.Processing
         }
 
         /// <summary>
-        /// Detects blink events by correcting the moving baseline of the AF7
-        /// and AF8 signals, finding negative peaks in both channels, and
+        /// Detects blink events by correcting the moving baseline of the selected
+        /// frontal channels, finding negative peaks in both channels, and
         /// merging peaks that occur close together.
         /// </summary>
-        /// <param name="af7">The EEG signal from the AF7 channel.</param>
-        /// <param name="af8">The EEG signal from the AF8 channel.</param>
+        /// <param name="signals">The EEG signals from the selected channel pair.</param>
         /// <returns>
         /// A sorted list of sample indices representing detected blink events.
         /// </returns>
-        private List<int> FindBlinkEvents(double[] af7, double[] af8)
+        private List<int> FindBlinkEvents(double[][] signals)
         {
-            double[] correctedAf7 = RemoveMovingBaseline(af7);
-            double[] correctedAf8 = RemoveMovingBaseline(af8);
             List<int> channelPeaks = new List<int>();
 
-            FindNegativePeaks(correctedAf7, channelPeaks);
-            FindNegativePeaks(correctedAf8, channelPeaks);
+            foreach (double[] signal in signals)
+            {
+                double[] corrected = RemoveMovingBaseline(signal);
+                FindNegativePeaks(corrected, channelPeaks);
+            }
             channelPeaks.Sort();
 
             return MergeNearbyPeaks(channelPeaks);

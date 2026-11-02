@@ -34,14 +34,29 @@ namespace SimpleBCI
         /// <summary>Whether blink detection is supported by this board configuration.</summary>
         public bool IsBlinkDetectionAvailable => blinkDetector != null;
 
+        /// <summary>
+        /// The frontal electrode pair selected for blink detection, or an empty
+        /// list when none of the supported pairs is available.
+        /// </summary>
+        public IReadOnlyList<ElectrodePosition> BlinkDetectionChannels =>
+            blinkDetector?.SelectedChannels ?? Array.Empty<ElectrodePosition>();
+
         /// <summary>Whether FAA tendency estimation is supported by this board configuration.</summary>
         public bool IsFaaTendencyAvailable => faaTendency != null;
+
+        /// <summary>The left/right electrode pair selected for FAA, or empty when unavailable.</summary>
+        public IReadOnlyList<ElectrodePosition> FaaChannels =>
+            faaTendency?.SelectedChannels ?? Array.Empty<ElectrodePosition>();
 
         /// <summary>Whether motor imagery classification is supported by this board configuration.</summary>
         public bool IsMotorImageryAvailable => motorImageryClassifier != null;
 
         /// <summary>Whether personalized cognitive workload estimation is supported.</summary>
         public bool IsCognitiveWorkloadAvailable => cognitiveWorkload != null;
+
+        /// <summary>The channel or channels selected for workload estimation, or empty when unavailable.</summary>
+        public IReadOnlyList<ElectrodePosition> CognitiveWorkloadChannels =>
+            cognitiveWorkload?.SelectedChannels ?? Array.Empty<ElectrodePosition>();
         #endregion
 
         /// <summary>
@@ -204,7 +219,7 @@ namespace SimpleBCI
         }
 
         private CognitiveWorkloadEstimator RequireCognitiveWorkload() => cognitiveWorkload ??
-            throw FeatureNotSupported("Cognitive workload estimation (requires AF7 and AF8)");
+            throw FeatureNotSupported("Cognitive workload estimation (requires Fz or a supported frontal pair)");
 
         /// <summary>
         /// Returns the current blinkstate.

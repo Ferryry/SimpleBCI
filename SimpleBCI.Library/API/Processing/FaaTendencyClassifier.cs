@@ -7,15 +7,15 @@ namespace SimpleBCI.API.Processing
     internal sealed class FaaTendencyClassifier
     {
         private const int WindowCount = 5;
-        private const int Nfft = 256;
-        private const int Overlap = 128;
         private const double WindowDurationSeconds = 2.0;
 
         private readonly BoardShim board;
         private readonly ImmutableBoardInformation boardInformation;
         private readonly int samplingRate;
-        private readonly int af7Channel;
-        private readonly int af8Channel;
+        private readonly int leftChannel;
+        private readonly int rightChannel;
+        private readonly ElectrodePosition leftPosition;
+        private readonly ElectrodePosition rightPosition;
         private readonly object stateLock = new object();
         private readonly object workerLock = new object();
         private readonly Queue<double> faaHistory = new Queue<double>();
@@ -42,12 +42,38 @@ namespace SimpleBCI.API.Processing
             this.boardInformation = boardInformation;
             samplingRate = boardInformation.SamplingRate;
 
-            if (!boardInformation.Channels.TryGetValue(ElectrodePosition.Af7, out af7Channel) ||
-                !boardInformation.Channels.TryGetValue(ElectrodePosition.Af8, out af8Channel))
+            (leftPosition, rightPosition, leftChannel, rightChannel) = SelectChannels(boardInformation.Channels);
+            if (leftChannel < 0 || rightChannel < 0)
             {
                 throw new NotSupportedException(
-                    "FAA calculation requires EEG channels named AF7 and AF8.");
+                    "FAA calculation requires one complete left/right pair: F3/F4, F7/F8, AF7/AF8, or FP1/FP2.");
             }
+        }
+
+        public IReadOnlyList<ElectrodePosition> SelectedChannels =>
+            Array.AsReadOnly(new[] { leftPosition, rightPosition });
+
+        private static (ElectrodePosition Left, ElectrodePosition Right, int LeftIndex, int RightIndex)
+            SelectChannels(IReadOnlyDictionary<ElectrodePosition, int> available)
+        {
+            (ElectrodePosition Left, ElectrodePosition Right)[] priorities =
+            {
+                (ElectrodePosition.F3, ElectrodePosition.F4),
+                (ElectrodePosition.F7, ElectrodePosition.F8),
+                (ElectrodePosition.Af7, ElectrodePosition.Af8),
+                (ElectrodePosition.Fp1, ElectrodePosition.Fp2)
+            };
+
+            foreach ((ElectrodePosition left, ElectrodePosition right) in priorities)
+            {
+                if (available.TryGetValue(left, out int leftIndex) &&
+                    available.TryGetValue(right, out int rightIndex))
+                {
+                    return (left, right, leftIndex, rightIndex);
+                }
+            }
+
+            return (ElectrodePosition.Unspecific, ElectrodePosition.Unspecific, -1, -1);
         }
 
         /// <summary>
@@ -163,33 +189,43 @@ namespace SimpleBCI.API.Processing
                 throw new InvalidOperationException("Not enough EEG data available.");
             }
 
-            if (data.GetLength(0) <= Math.Max(af7Channel, af8Channel))
+            if (data.GetLength(0) <= Math.Max(leftChannel, rightChannel))
             {
-                throw new InvalidOperationException("AF7 or AF8 channel is missing from the board data.");
+                throw new InvalidOperationException("A selected FAA channel is missing from the board data.");
             }
 
-            double[] af7 = new double[sampleCount];
-            double[] af8 = new double[sampleCount];
+            double[] left = new double[sampleCount];
+            double[] right = new double[sampleCount];
             for (int i = 0; i < sampleCount; i++)
             {
-                af7[i] = data[af7Channel, i];
-                af8[i] = data[af8Channel, i];
+                left[i] = data[leftChannel, i];
+                right[i] = data[rightChannel, i];
             }
 
-            var psdAF7 = DataFilter.get_psd_welch(af7, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
-            var psdAF8 = DataFilter.get_psd_welch(af8, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
+            // The NeuroPawn's 2-second window contains 250 samples at 125 Hz,
+            // so a fixed NFFT of 256 is too large. Choose the largest power of
+            // two strictly smaller than the actual data length.
+            int nfft = 1;
+            while (nfft * 2 < sampleCount)
+            {
+                nfft *= 2;
+            }
+            int overlap = nfft / 2;
 
-            double alphaPowerAF7 = PowerSpectrumCalculator.CalculateBandPower(
-                psdAF7.ToValueTuple(), 8.0, 13.0);
-            double alphaPowerAF8 = PowerSpectrumCalculator.CalculateBandPower(
-                psdAF8.ToValueTuple(), 8.0, 13.0);
+            var psdLeft = DataFilter.get_psd_welch(left, nfft, overlap, samplingRate, (int)WindowOperations.HANNING);
+            var psdRight = DataFilter.get_psd_welch(right, nfft, overlap, samplingRate, (int)WindowOperations.HANNING);
 
-            if (alphaPowerAF7 <= 0 || alphaPowerAF8 <= 0)
+            double alphaPowerLeft = PowerSpectrumCalculator.CalculateBandPower(
+                psdLeft.ToValueTuple(), 8.0, 13.0);
+            double alphaPowerRight = PowerSpectrumCalculator.CalculateBandPower(
+                psdRight.ToValueTuple(), 8.0, 13.0);
+
+            if (alphaPowerLeft <= 0 || alphaPowerRight <= 0)
             {
                 throw new InvalidOperationException("Alpha power must be positive.");
             }
 
-            double faa = Math.Log(alphaPowerAF8) - Math.Log(alphaPowerAF7);
+            double faa = Math.Log(alphaPowerRight) - Math.Log(alphaPowerLeft);
             lock (stateLock)
             {
                 faaHistory.Enqueue(faa);

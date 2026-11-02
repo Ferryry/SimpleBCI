@@ -57,6 +57,45 @@ The prototype provides access to three BCI paradigms:
 
 The API is designed to abstract device-specific details and provide a consistent interface for applications.
 
+Blink detection selects the first complete channel pair available in this order:
+FP1/FP2, AF7/AF8, then F7/F8. The selected positions are available through
+`BciClient.BlinkDetectionChannels`; `IsBlinkDetectionAvailable` is false when
+none of the pairs is mapped.
+
+FAA selects a complete pair in this order: F3/F4, F7/F8, AF7/AF8, then
+FP1/FP2. The selected pair is exposed through `BciClient.FaaChannels`.
+Cognitive workload estimation selects Fz first, then the first available pair
+in this order: F3/F4, AF7/AF8, F7/F8, FP1/FP2. Its selected channel(s) are
+exposed through `BciClient.CognitiveWorkloadChannels`. Pair-based workload
+estimation averages the log theta power across the selected pair. Muse can
+therefore continue to provide an exploratory, individually calibrated estimate
+using AF7/AF8, while a NeuroPawn layout containing Fz uses Fz preferentially.
+
+### Signal scaling and calibration
+
+EEG amplitudes depend on the device, its gain and units, electrode contact, the
+user, and the recording environment. The 20–100 µV range cited by Sewell et al.
+is useful as broad clinical context, but it is not a universal operating range
+for consumer devices or a suitable target for rescaling. Multiplying a noisy
+signal to fit that range changes the numeric scale; it does not remove
+interference, identify blinks, or recover a clean EEG signal. The API therefore
+does not rescale incoming signals to that range.
+
+Where a feature depends on a person's pattern, prefer a task-specific
+calibration: motor imagery already has trial calibration, and cognitive
+workload is expressed relative to a low-workload baseline. Blink detection
+uses a moving-baseline correction and estimates its amplitude threshold from
+the robust spread (median absolute deviation) of each channel's current
+analysis window. That reduces dependence on device gain and units, but cannot
+distinguish every blink from high-amplitude interference or poor electrode
+contact. Signal quality checks and validation across devices and environments
+remain necessary.
+
+FAA is calculated as a log alpha-power difference. Its mathematical form is
+scale-relative, but a fixed threshold used to label the result as
+approach-related or avoidance-related is still a heuristic; it should not be
+treated as a universal or clinically validated interpretation.
+
 ## Privacy and Security
 
 EEG signals can contain sensitive personal information beyond what an application requires for its intended task. SimpleBCI explores a privacy-oriented approach in which signal processing takes place locally and applications receive only task-specific results.
