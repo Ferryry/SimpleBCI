@@ -11,7 +11,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
     /// </summary>
     internal class SimpleJsonRpcNeuroPawn : ISimpleTestApplication
     {
-        public static string name = "JsonRPC Test (NeuroPawn)";
+        public static string name = "SnakeFX - Blinking - JsonRPC Test (NeuroPawn)";
         private readonly BciClient instance;
         private readonly int port = 5080;
         private TcpListener listener;
@@ -22,14 +22,14 @@ namespace SimpleBCI.TestApplication.SimpleTests
             string serial = "COM4";
             ChannelInput[] channels =
             {
-                new(0, ElectrodePosition.Af7), // NeuroPawn input 1
-                new(1, ElectrodePosition.Af8), // NeuroPawn input 2
+                new(0, ElectrodePosition.Unspecific),
+                new(1, ElectrodePosition.Unspecific),
                 new(2, ElectrodePosition.Unspecific),
                 new(3, ElectrodePosition.Unspecific),
                 new(4, ElectrodePosition.Unspecific),
                 new(5, ElectrodePosition.Unspecific),
-                new(6, ElectrodePosition.Unspecific),
-                new(7, ElectrodePosition.Unspecific),
+                new(6, ElectrodePosition.Af7),
+                new(7, ElectrodePosition.Af8),
             };
 
             instance = new BciClient(
@@ -41,8 +41,8 @@ namespace SimpleBCI.TestApplication.SimpleTests
                     channels,
                     new NeuroPawnKnightConfiguration(
                     [
-                        new(1, Gain: 12),
-                        new(2, Gain: 12),
+                        new(7, Gain: 12),
+                        new(8, Gain: 12),
                     ])));
 
             cancellationTokenSource = new CancellationTokenSource();
@@ -55,6 +55,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
             try
             {
                 instance.Start();
+
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
@@ -108,15 +109,6 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 BlinkState result = instance.GetCurrentBlinkState();
 
                 Console.WriteLine($"GetBlinkState() -> {result}");
-
-                return result;
-            }
-
-            public MotorImageryState GetMotorImageryState()
-            {
-                MotorImageryState result = instance.GetMotorImageryState();
-
-                Console.WriteLine($"GetMotorImageryState() -> {result}");
 
                 return result;
             }

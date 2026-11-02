@@ -1,10 +1,10 @@
 using brainflow;
-using SimpleBCI.API;
+using SimpleBCI.API.Processing.Helper;
 using SimpleBCI.API.States;
 
 namespace SimpleBCI.API.Processing
 {
-    internal sealed class FaaStateCalculator
+    internal sealed class FaaTendencyClassifier
     {
         private const int WindowCount = 5;
         private const int Nfft = 256;
@@ -19,12 +19,12 @@ namespace SimpleBCI.API.Processing
         private readonly object stateLock = new object();
         private readonly object workerLock = new object();
         private readonly Queue<double> faaHistory = new Queue<double>();
-        private FaaState latestState = FaaState.Unknown;
+        private FaaTendencyState latestState = FaaTendencyState.Unknown;
 
         private CancellationTokenSource? workerCancellation;
         private Task? workerTask;
 
-        public FaaStateCalculator(
+        public FaaTendencyClassifier(
             BoardShim board,
             ImmutableBoardInformation boardInformation)
         {
@@ -121,10 +121,7 @@ namespace SimpleBCI.API.Processing
                 {
                     UpdateFaaState();
                 }
-                catch (InvalidOperationException)
-                {
-                    // Keep the last valid result until usable EEG data is available.
-                }
+                catch (InvalidOperationException) { }
 
                 try
                 {
@@ -147,7 +144,7 @@ namespace SimpleBCI.API.Processing
         /// <summary>
         /// Returns the most recently calculated result without reading the board.
         /// </summary>
-        public FaaState GetFaaState()
+        public FaaTendencyState GetFaaState()
         {
             lock (stateLock)
             {
@@ -182,8 +179,11 @@ namespace SimpleBCI.API.Processing
             var psdAF7 = DataFilter.get_psd_welch(af7, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
             var psdAF8 = DataFilter.get_psd_welch(af8, Nfft, Overlap, samplingRate, (int)WindowOperations.HANNING);
 
-            double alphaPowerAF7 = DataFilter.get_band_power(psdAF7, 8.0, 13.0);
-            double alphaPowerAF8 = DataFilter.get_band_power(psdAF8, 8.0, 13.0);
+            double alphaPowerAF7 = PowerSpectrumCalculator.CalculateBandPower(
+                psdAF7.ToValueTuple(), 8.0, 13.0);
+            double alphaPowerAF8 = PowerSpectrumCalculator.CalculateBandPower(
+                psdAF8.ToValueTuple(), 8.0, 13.0);
+
             if (alphaPowerAF7 <= 0 || alphaPowerAF8 <= 0)
             {
                 throw new InvalidOperationException("Alpha power must be positive.");
@@ -203,19 +203,19 @@ namespace SimpleBCI.API.Processing
             }
         }
 
-        private static FaaState CalculateFaaState(double meanFaa)
+        private static FaaTendencyState CalculateFaaState(double meanFaa)
         {
             if (meanFaa > 1)
             {
-                return FaaState.HigherAlphaAF8;
+                return FaaTendencyState.ApproachRelated;
             }
 
             if (meanFaa < -1)
             {
-                return FaaState.HigherAlphaAF7;
+                return FaaTendencyState.AvoidanceRelated;
             }
 
-            return FaaState.NoSignificantAsymmetry;
+            return FaaTendencyState.NoSignificantAsymmetry;
         }
     }
 }

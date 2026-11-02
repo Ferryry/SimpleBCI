@@ -14,11 +14,35 @@ namespace SimpleBCI
         private readonly BoardShim board;
         private readonly BoardType boardType;
         private readonly IBoardConfiguration? boardConfiguration;
+        private readonly ImmutableBoardInformation boardInfo;
+        private readonly List<string> availableFeatures;
+        private static bool autoStartApi = true;
+
+        #region Classifier and detector components related fields and instancess
         private readonly NeuroPawnMotorImageryClassifier? motorImageryClassifier;
         private readonly BlinkDetector? blinkDetector;
-        private readonly FaaStateCalculator? emotionDetector;
-        private readonly ImmutableBoardInformation boardInfo;
-        private static bool autoStartApi = true;
+        private readonly FaaTendencyClassifier? faaTendency;
+        private readonly CognitiveWorkloadEstimator? cognitiveWorkload;
+
+        /// <summary>
+        /// Returns the names of the features supported by this board configuration.
+        /// </summary>
+        /// <remarks>Possible names are "BlinkDetection", "FaaTendency", "MotorImagery", and "CognitiveWorkload".</remarks>
+        public IReadOnlyCollection<string> GetAvailableFeatures() =>
+            Array.AsReadOnly(availableFeatures.ToArray());
+
+        /// <summary>Whether blink detection is supported by this board configuration.</summary>
+        public bool IsBlinkDetectionAvailable => blinkDetector != null;
+
+        /// <summary>Whether FAA tendency estimation is supported by this board configuration.</summary>
+        public bool IsFaaTendencyAvailable => faaTendency != null;
+
+        /// <summary>Whether motor imagery classification is supported by this board configuration.</summary>
+        public bool IsMotorImageryAvailable => motorImageryClassifier != null;
+
+        /// <summary>Whether personalized cognitive workload estimation is supported.</summary>
+        public bool IsCognitiveWorkloadAvailable => cognitiveWorkload != null;
+        #endregion
 
         /// <summary>
         /// Creates a SimpleBCI instance for the selected board.
@@ -50,14 +74,20 @@ namespace SimpleBCI
             board = CreateBoard(selection, parameters);
             boardInfo = CreateBoardInformation(board, parameters);
 
-            blinkDetector = TryCreateFeature(() => new BlinkDetector(board, boardInfo));
-            emotionDetector = TryCreateFeature(() => new FaaStateCalculator(board, boardInfo));
-            motorImageryClassifier = TryCreateFeature(() => new NeuroPawnMotorImageryClassifier(board, boardInfo));
+            availableFeatures = new List<string>();
 
-            if (autoStartApi)
-            {
-                Start();
-            }
+            blinkDetector = TryCreateFeature(
+                "BlinkDetection",
+                () => new BlinkDetector(board, boardInfo));
+            faaTendency = TryCreateFeature(
+                "FaaTendency",
+                () => new FaaTendencyClassifier(board, boardInfo));
+            motorImageryClassifier = TryCreateFeature(
+                "MotorImagery",
+                () => new NeuroPawnMotorImageryClassifier(board, boardInfo));
+            cognitiveWorkload = TryCreateFeature(
+                "CognitiveWorkload",
+                () => new CognitiveWorkloadEstimator(board, boardInfo));
         }
 
         private BoardShim CreateBoard(SimpleBCIBoardSelection selection, SimpleBCIParameters parameters)
@@ -94,11 +124,13 @@ namespace SimpleBCI
         /// <typeparam name="T">The feature component type.</typeparam>
         /// <param name="create">A function that creates the feature component.</param>
         /// <returns>The created component, or null if the board does not support the feature.</returns>
-        private static T? TryCreateFeature<T>(Func<T> create) where T : class
+        private T? TryCreateFeature<T>(string featureName, Func<T> create) where T : class
         {
             try
             {
-                return create();
+                T feature = create();
+                availableFeatures.Add(featureName);
+                return feature;
             }
             catch (NotSupportedException)
             {
@@ -109,12 +141,20 @@ namespace SimpleBCI
         private static NotSupportedException FeatureNotSupported(string feature) =>
             new NotSupportedException($"{feature} is not supported by the selected board.");
 
+        /// <summary>
+        /// If enabled Api will autostart after instantiation.
+        /// </summary>
+        /// <param name="autoStart">Autostart option.</param>
         public static void SetAutoStartApi(bool autoStart)
         {
             autoStartApi = autoStart;
         }
 
-        public static bool AutoStartApiEnabled()
+        /// <summary>
+        /// Returns set autostart option.
+        /// </summary>
+        /// <returns>Status</returns>
+        public static bool IsAutoStartApiEnabled()
         {
             return autoStartApi;
         }
@@ -132,15 +172,39 @@ namespace SimpleBCI
         /// Returns and estimates the user's most likely emotional state based on EEG data.
         /// </summary>
         /// <returns>Estimated emotion state.</returns>
-        public FaaState GetFaaState()
+        public FaaTendencyState GetFaaTendency()
         {
-            if (emotionDetector == null)
+            if (faaTendency == null)
             {
                 throw FeatureNotSupported("FAA calculation");
             }
 
-            return emotionDetector.GetFaaState();
+            return faaTendency.GetFaaState();
         }
+
+        /// <summary>Records one EEG window during a low-workload baseline calibration.</summary>
+        public void AddCognitiveWorkloadBaselineSample()
+        {
+            RequireCognitiveWorkload().AddBaselineSample();
+        }
+
+        /// <summary>Finishes personalized baseline calibration after at least ten samples.</summary>
+        public void FinishCognitiveWorkloadCalibration()
+        {
+            RequireCognitiveWorkload().FinishBaselineCalibration();
+        }
+
+        /// <summary>Whether cognitive workload calibration has been completed.</summary>
+        public bool IsCognitiveWorkloadCalibrated => RequireCognitiveWorkload().IsCalibrated;
+
+        /// <summary>Returns workload relative to the calibrated personal baseline.</summary>
+        public CognitiveWorkloadState GetCognitiveWorkloadState()
+        {
+            return RequireCognitiveWorkload().GetState();
+        }
+
+        private CognitiveWorkloadEstimator RequireCognitiveWorkload() => cognitiveWorkload ??
+            throw FeatureNotSupported("Cognitive workload estimation (requires AF7 and AF8)");
 
         /// <summary>
         /// Returns the current blinkstate.
@@ -202,7 +266,8 @@ namespace SimpleBCI
                 board.prepare_session();
                 board.start_stream();
                 boardConfiguration?.Apply(new BrainFlowBoardConfigurationContext(board));
-                emotionDetector?.StartWorker();
+                faaTendency?.StartWorker();
+                cognitiveWorkload?.StartWorker();
                 return true;
             }
             catch (Exception e)
@@ -219,7 +284,8 @@ namespace SimpleBCI
         {
             try
             {
-                emotionDetector?.StopWorker().GetAwaiter().GetResult();
+                faaTendency?.StopWorker().GetAwaiter().GetResult();
+                cognitiveWorkload?.StopWorker().GetAwaiter().GetResult();
                 motorImageryClassifier?.Dispose();
 
                 if (IsApiRunning())

@@ -1,10 +1,10 @@
 ﻿namespace SimpleBCI.API.States
 {
-    public enum FaaState
+    public enum FaaTendencyState
     {
         Unknown,
         NoSignificantAsymmetry,
-        HigherAlphaAF8,
-        HigherAlphaAF7
+        ApproachRelated,
+        AvoidanceRelated
     }
 }

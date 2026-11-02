@@ -134,14 +134,14 @@ namespace SimpleBCI.TestApplication.SimpleTests
             string serial = "COM4";
             ChannelInput[] channels =
             {
-                new(0, ElectrodePosition.Unspecific),
-                new(1, ElectrodePosition.Unspecific),
+                new(0, ElectrodePosition.Af7),
+                new(1, ElectrodePosition.Af8),
                 new(2, ElectrodePosition.Unspecific),
                 new(3, ElectrodePosition.Unspecific),
                 new(4, ElectrodePosition.Unspecific),
                 new(5, ElectrodePosition.Unspecific),
-                new(6, ElectrodePosition.Af7), // NeuroPawn input 7
-                new(7, ElectrodePosition.Af8), // NeuroPawn input 8
+                new(6, ElectrodePosition.Unspecific),
+                new(7, ElectrodePosition.Unspecific),
             };
             
             instance = new BciClient(
@@ -153,8 +153,8 @@ namespace SimpleBCI.TestApplication.SimpleTests
                     channels,
                     new NeuroPawnKnightConfiguration(
                     [
-                        new(7, Gain: 12),
-                        new(8, Gain: 12),
+                        new(1, Gain: 12),
+                        new(2, Gain: 12),
                     ])));
 
             cancellationTokenSource = new CancellationTokenSource();

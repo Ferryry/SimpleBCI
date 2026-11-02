@@ -33,7 +33,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
                     null,
                     channels,
                     new NeuroPawnKnightConfiguration(
-                        Enumerable.Range(1, 8).Select(ch => new NeuroPawnChannelConfiguration(ch, Gain: 1)))));
+                        Enumerable.Range(1, 8).Select(ch => new NeuroPawnChannelConfiguration(ch, Gain: 12)))));
         }
 
         /// <summary>One trial: get ready (1 s), imagine (4 s), then the caller reads the result.</summary>

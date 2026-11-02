@@ -41,6 +41,7 @@ flowchart LR
     BLINK --> STATE[Derived States]
     FAA --> STATE
     MI --> STATE
+    WORKLOAD[Relative Cognitive Workload] --> STATE
 
     STATE --> APP[Third-Party Application]
 ```
@@ -52,6 +53,7 @@ The prototype provides access to three BCI paradigms:
 - **Blink Detection:** Detects no blink, a single blink, or a double blink.
 - **Frontal Alpha Asymmetry (FAA):** Provides a state derived from frontal alpha asymmetry.
 - **Motor Imagery:** Classifies left, neutral, or right motor imagery.
+- **Cognitive Workload:** Estimates whether frontal theta power is elevated relative to a personalized low-workload baseline. This is an exploratory workload estimate, not a general concentration or performance measure.
 
 The API is designed to abstract device-specific details and provide a consistent interface for applications.
 

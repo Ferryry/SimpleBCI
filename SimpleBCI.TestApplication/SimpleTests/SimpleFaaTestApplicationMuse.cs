@@ -65,7 +65,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
         /// Formats the current Brainstate info and prints it.
         /// </summary>
         /// <param name="state">Current brainstate obtained by the SimpleBCI API.</param>
-        private void PrintCurrentState(FaaState state)
+        private void PrintCurrentState(FaaTendencyState state)
         {
             Console.WriteLine(String.Format(
                 "{0}[{1}] FAA State: {2}\n",
@@ -91,7 +91,7 @@ namespace SimpleBCI.TestApplication.SimpleTests
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
-                    PrintCurrentState(instance.GetFaaState());
+                    PrintCurrentState(instance.GetFaaTendency());
 
                     switch (displayDelay)
                     {
