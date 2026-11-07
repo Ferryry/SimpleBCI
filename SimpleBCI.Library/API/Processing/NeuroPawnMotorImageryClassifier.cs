@@ -68,6 +68,8 @@ namespace SimpleBCI.API.Processing
         public MotorImageryState GetMotorImageryState()
         {
             double[] p = model.Predict(ReadEpoch());
+
+            Console.WriteLine($"Left: {p[0]}, Right: {p[1]}");
             if (Math.Max(p[0], p[1]) < MinScore)
             {
                 return MotorImageryState.Neutral;

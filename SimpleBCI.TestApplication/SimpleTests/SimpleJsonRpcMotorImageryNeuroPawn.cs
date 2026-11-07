@@ -50,7 +50,8 @@ namespace SimpleBCI.TestApplication.SimpleTests
             try
             {
                 instance.Start();
-                Console.WriteLine("Motor imagery board started. Collecting 6 seconds of EEG before calibration.");
+                Console.WriteLine("Motor imagery board started with inputs 1-8 mapped to FC3, FC4, C5, C3, C4, C6, CP3, CP4.");
+                Console.WriteLine("Collecting at least 6 seconds of EEG before calibration.");
                 await Task.Delay(6000, cancellationTokenSource.Token);
 
                 for (int i = 0; i < CalibrationTrials; i++)
@@ -66,8 +67,14 @@ namespace SimpleBCI.TestApplication.SimpleTests
                 }
 
                 instance.FinishMotorImageryCalibration();
+                if (!instance.IsMotorImageryCalibrated)
+                {
+                    throw new InvalidOperationException("Motor imagery calibration did not complete.");
+                }
+
                 listener.Start();
-                Console.WriteLine("Calibration complete. Snake can now connect on TCP port 5080.");
+                Console.WriteLine("Calibration complete (10 alternating trials). Snake can now connect on TCP port 5080.");
+                Console.WriteLine("Keep this process running while SnakeFX is playing.");
 
                 while (!cancellationTokenSource.IsCancellationRequested)
                 {
@@ -133,6 +140,11 @@ namespace SimpleBCI.TestApplication.SimpleTests
             /// <summary>Return Left, Right, or Neutral. Call 4 seconds after the game cue.</summary>
             public MotorImageryState GetMotorImageryState()
             {
+                if (!instance.IsMotorImageryCalibrated)
+                {
+                    throw new InvalidOperationException("Motor imagery is not calibrated yet.");
+                }
+
                 MotorImageryState result = instance.GetMotorImageryState();
                 Console.WriteLine($"GetMotorImageryState() -> {result}");
                 return result;
