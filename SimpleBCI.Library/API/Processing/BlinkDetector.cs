@@ -18,7 +18,7 @@ namespace SimpleBCI.API.Processing
 
         private double lastProcessedTimestamp = double.NegativeInfinity;
         private double? previousBlinkTimestamp;
-        private const double BlinkThreshold = 200.0;
+        private const double BlinkThreshold = 180.0;
         private const double MinBlinkInterval = 0.1;
         private const double MaxBlinkDuration = 0.3;
         private const double MinBlinkDuration = 0.05;
@@ -185,9 +185,8 @@ namespace SimpleBCI.API.Processing
         }
 
         /// <summary>
-        /// Detects blink events by correcting the moving baseline of the selected
-        /// frontal channels, finding negative peaks in both channels, and
-        /// merging peaks that occur close together.
+        /// Detects positive and negative peaks directly in the selected frontal
+        /// channels and merges peaks that occur close together across channels.
         /// </summary>
         /// <param name="signals">The EEG signals from the selected channel pair.</param>
         /// <returns>
@@ -195,101 +194,131 @@ namespace SimpleBCI.API.Processing
         /// </returns>
         private List<int> FindBlinkEvents(double[][] signals)
         {
-            List<int> channelPeaks = new List<int>();
+            List<BlinkPeak> channelPeaks = new();
 
             foreach (double[] signal in signals)
             {
-                double[] corrected = RemoveMovingBaseline(signal);
-                FindNegativePeaks(corrected, channelPeaks);
+                channelPeaks.AddRange(FindPeaks(signal, polarity: 1));
+                channelPeaks.AddRange(FindPeaks(signal, polarity: -1));
             }
-            channelPeaks.Sort();
+            channelPeaks.Sort((left, right) => left.Index.CompareTo(right.Index));
 
-            return MergeNearbyPeaks(channelPeaks);
+            return MergeNearbyPeaks(channelPeaks.Select(peak => peak.Index).ToList());
         }
 
         /// <summary>
-        /// Removes moving baseline. 
+        /// Detects peaks of the requested polarity using amplitude, prominence,
+        /// distance and duration thresholds.
         /// </summary>
-        /// <param name="signal">raw eeg data.</param>
-        /// <returns>Corrected raw eeg data.</returns>
-        private double[] RemoveMovingBaseline(double[] signal)
+        private List<BlinkPeak> FindPeaks(double[] signal, int polarity)
         {
-            // A centered half-second baseline window removes slow drift. The
-            // threshold still probably needs calibration for the board's units/setup.
-            int radius = Math.Max(1, samplingRate / 4);
-            double[] corrected = new double[signal.Length];
+            List<BlinkPeak> candidates = new();
+            double[] oriented = signal.Select(value => value * polarity).ToArray();
+            int minWidth = (int)(samplingRate * MinBlinkDuration);
+            int maxWidth = (int)(samplingRate * MaxBlinkDuration);
 
-            for (int i = 0; i < signal.Length; i++)
+            int i = 1;
+            while (i < oriented.Length - 1)
             {
-                int start = Math.Max(0, i - radius);
-                int end = Math.Min(signal.Length - 1, i + radius);
-                double sum = 0;
-
-                for (int j = start; j <= end; j++)
+                if (oriented[i] <= oriented[i - 1])
                 {
-                    sum += signal[j];
+                    i++;
+                    continue;
                 }
 
-                corrected[i] = signal[i] - sum / (end - start + 1);
+                int plateauEnd = i;
+                while (plateauEnd < oriented.Length - 1 && oriented[plateauEnd + 1] == oriented[i])
+                {
+                    plateauEnd++;
+                }
+
+                // A plateau that reaches the final sample has no right-hand
+                // neighbor, so it cannot be classified as a local maximum.
+                if (plateauEnd == oriented.Length - 1)
+                {
+                    break;
+                }
+
+                if (oriented[plateauEnd] > oriented[plateauEnd + 1])
+                {
+                    int peakIndex = (i + plateauEnd) / 2;
+                    double peakHeight = oriented[peakIndex];
+                    if (peakHeight >= BlinkThreshold)
+                    {
+                        double prominence = CalculateProminence(oriented, peakIndex, peakHeight);
+                        if (prominence >= BlinkThreshold * 0.5)
+                        {
+                            double width = CalculateWidth(oriented, peakIndex, peakHeight, prominence);
+                            if (width >= minWidth && width <= maxWidth)
+                            {
+                                candidates.Add(new BlinkPeak(peakIndex, peakHeight));
+                            }
+                        }
+                    }
+
+                    i = plateauEnd + 1;
+                }
+                else
+                {
+                    i++;
+                }
             }
 
-            return corrected;
-        }
-
-        /// <summary>
-        /// Detects negative peaks in an EEG signal and accepts only those
-        /// that satisfy the configured amplitude, distance and duration thresholds.
-        /// </summary>
-        /// <param name="signal">
-        /// The baseline-corrected EEG signal to analyze.
-        /// </param>
-        /// <param name="peaks">
-        /// The list to which the indices of accepted peaks are added.
-        /// </param>
-        private void FindNegativePeaks(double[] signal, List<int> peaks)
-        {
-            int minWidth = (int)Math.Ceiling(samplingRate * MinBlinkDuration);
-            int maxWidth = (int)Math.Floor(samplingRate * MaxBlinkDuration);
-            int minDistance = (int)Math.Ceiling(samplingRate * MinBlinkInterval);
-            int lastAcceptedPeak = -minDistance;
-
-            for (int i = 1; i < signal.Length - 1; i++)
+            int minDistance = (int)(samplingRate * MinBlinkInterval);
+            List<BlinkPeak> selected = new();
+            foreach (BlinkPeak candidate in candidates.OrderByDescending(peak => peak.Height))
             {
-                bool isLocalMinimum = signal[i] < signal[i - 1] && signal[i] <= signal[i + 1];
-                if (!isLocalMinimum || Math.Abs(signal[i]) < BlinkThreshold)
+                if (selected.All(peak => Math.Abs(peak.Index - candidate.Index) >= minDistance))
                 {
-                    continue;
+                    selected.Add(candidate);
                 }
-
-                if (i - lastAcceptedPeak < minDistance)
-                {
-                    continue;
-                }
-
-                double halfAmplitude = signal[i] / 2.0;
-                int left = i;
-                int right = i;
-
-                while (left > 0 && signal[left] < halfAmplitude)
-                {
-                    left--;
-                }
-
-                while (right < signal.Length - 1 && signal[right] < halfAmplitude)
-                {
-                    right++;
-                }
-
-                int width = right - left;
-                if (width < minWidth || width > maxWidth)
-                {
-                    continue;
-                }
-
-                peaks.Add(i);
-                lastAcceptedPeak = i;
             }
+
+            return selected;
         }
+
+        private static double CalculateProminence(double[] signal, int peakIndex, double peakHeight)
+        {
+            double leftBase = peakHeight;
+            for (int i = peakIndex; i >= 0; i--)
+            {
+                if (i < peakIndex && signal[i] > peakHeight) break;
+                leftBase = Math.Min(leftBase, signal[i]);
+            }
+
+            double rightBase = peakHeight;
+            for (int i = peakIndex; i < signal.Length; i++)
+            {
+                if (i > peakIndex && signal[i] > peakHeight) break;
+                rightBase = Math.Min(rightBase, signal[i]);
+            }
+
+            return peakHeight - Math.Max(leftBase, rightBase);
+        }
+
+        private static double CalculateWidth(double[] signal, int peakIndex, double peakHeight, double prominence)
+        {
+            double contour = peakHeight - prominence * 0.5;
+            int left = peakIndex;
+            while (left > 0 && signal[left] > contour) left--;
+            double leftIntersection = left;
+            if (left < peakIndex && signal[left + 1] != signal[left])
+            {
+                leftIntersection += (contour - signal[left]) / (signal[left + 1] - signal[left]);
+            }
+
+            int right = peakIndex;
+            while (right < signal.Length - 1 && signal[right] > contour) right++;
+            double rightIntersection = right;
+            if (right > peakIndex && signal[right - 1] != signal[right])
+            {
+                rightIntersection -= (contour - signal[right]) / (signal[right - 1] - signal[right]);
+            }
+
+            return rightIntersection - leftIntersection;
+        }
+
+        private readonly record struct BlinkPeak(int Index, double Height);
 
         /// <summary>
         /// Filters out peaks that occur within the configured merge distance
